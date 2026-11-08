@@ -1,0 +1,381 @@
+task_name: ${task.name}
+experiment: student_sim_thesis_twofinger_padapt
+num_envs: ''
+seed: 42
+physics_engine: physx
+pipeline: gpu
+sim_device: cuda:0
+rl_device: cuda:0
+graphics_device_id: 7
+num_threads: 4
+solver_type: 1
+num_subscenes: 0
+test: false
+checkpoint: /workspace/dexscrew-repro/outputs/Dexh13HoraLightbulb_teacher_thesis_twofinger/thesis_twofinger_thumbpose02_diag_s42_1h/stage1_nn/best_reward_3171.29.pth
+headless: true
+wandb_activate: true
+wandb_group: ''
+wandb_name: ${experiment}
+wandb_entity: ''
+wandb_project: dexscrew
+task:
+  name: Dexh13HoraLightbulb
+  physics_engine: ${..physics_engine}
+  on_evaluation: false
+  eval_cache_name: thesis_twofinger
+  env:
+    initPose: screwdriver_inclined
+    numEnvs: 48
+    numActions: 16
+    apply_action_mask: true
+    action_mask_indices:
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    envSpacing: 0.5
+    episodeLength: 800
+    aggregateMode: 1
+    controller:
+      torque_control: true
+      controlFrequencyInv: 10
+      pgain: 3
+      dgain: 0.01
+      action_scale: 0.05
+      torque_limit: 300.0
+    rotation_axis: +z
+    clipObservations: 5.0
+    clipActions: 1.0
+    reset_dist_threshold: 0.15
+    reset_z_threshold: 0.0
+    normalize_penalties_by_num_actions: true
+    pose_diff_penalty:
+      thumb_weight: 0.1
+    finger_object_contact:
+      thumb_fingertip_index: 3
+      other_fingertip_indices:
+      - 0
+    thumb_slip_diagnostics:
+      contact_drop_w: 0.2
+      far_dist: 0.09
+      high_tip_speed: 0.25
+      active_screw_vel: 0.2
+    forceScale: 2.0
+    randomForceProbScalar: 0.25
+    forceDecay: 0.9
+    forceDecayInterval: 0.08
+    termination:
+      grace_steps: 0
+      enable_finger_dist: true
+      enable_nut_stagnation: true
+      enable_no_contact: true
+      enable_screw_limit: true
+      log: false
+    hora:
+      propHistoryLen: 30
+      point_cloud_sampled_dim: 100
+    reward:
+      angvelClipMin: -4.0
+      angvelClipMax: 4.0
+      angvelPenaltyThres:
+      - 7.5
+      - 15.0
+      - 30000000
+      - 60000000
+      rotate_reward_scale: 2.5
+      pose_diff_penalty_scale: -1.5
+      torque_penalty_scale: -30.0
+      work_penalty_scale: -0.15
+      rotate_penalty_scale: -0.3
+      pc_z_dist_penalty_scale: -1.0
+      proximity_reward_scale: 2.0
+      fingertip_tangent_reward_scale: 0.6
+      fingertip_torque_reward_scale: 0.3
+    two_finger_gate:
+      enable: true
+      thumb_fingertip_index: 3
+      other_fingertip_indices:
+      - 0
+      other_aggregation: max
+      target: nut_pos
+      target_offset:
+      - 0.0
+      - 0.0
+      - 0.04
+      near: 0.08
+      far: 0.13
+      min_mult: 0.05
+      power: 1.0
+      scale_with_object: true
+      apply_positive_vel_only: true
+      use_contact_force: true
+      contact_force_min: 0.3
+      contact_force_max: 2.0
+      no_grasp_penalty_scale: -0.3
+    fingertip_tangent_reward:
+      enable: true
+      fingertip_indices:
+      - 0
+      target: nut_pos
+      target_offset:
+      - 0.0
+      - 0.0
+      - 0.04
+      near: 0.08
+      far: 0.13
+      velocity_clip: 0.5
+      scale_with_object: true
+      positive_only: true
+      use_contact_force: true
+      contact_force_min: 0.3
+      contact_force_max: 2.0
+    fingertip_torque_reward:
+      enable: true
+      fingertip_indices:
+      - 0
+      target: nut_pos
+      target_offset:
+      - 0.0
+      - 0.0
+      - 0.04
+      near: 0.08
+      far: 0.13
+      torque_clip: 8.0
+      scale_with_object: true
+      positive_only: true
+      force_sign: -1.0
+      contact_force_min: 0.3
+      contact_force_max: 2.0
+    baseObjScale: 1.2
+    randomization:
+      randomizeMass: true
+      randomizeMassLower: 0.04
+      randomizeMassUpper: 0.06
+      randomizeCOM: true
+      randomizeCOMLower: -0.001
+      randomizeCOMUpper: 0.001
+      randomizeFriction: true
+      randomizeFrictionLower: 1.0
+      randomizeFrictionUpper: 5.0
+      randomizeRestitutionLower: 0.0
+      randomizeRestitutionUpper: 0.05
+      randomizeScale: false
+      randomize_hand_scale: false
+      scaleListInit: true
+      randomizeScaleList:
+      - 1.2
+      randomizeScaleMin: 1.2
+      randomizeScaleMax: 1.2
+      randomizeScaleLower: 1.2
+      randomizeScaleUpper: 1.2
+      randomizePDGains: true
+      randomizePGainLower: 2.7
+      randomizePGainUpper: 3.3
+      randomizeDGainLower: 0.009
+      randomizeDGainUpper: 0.011
+      obs_noise_e_scale: 0.02
+      obs_noise_t_scale: 0.01
+      pose_noise_scale: 0.0
+      action_noise_e_scale: 0.01
+      action_noise_t_scale: 0.005
+      noisy_rpy_scale: 0.1
+      noisy_pos_scale: 0.02
+    privInfo:
+      enableObjPos: true
+      enableObjScale: true
+      enableObjMass: true
+      enableObjCOM: true
+      enableObjFriction: true
+      enable_obj_restitution: true
+      enable_tactile: false
+      contact_input_dim: 4
+      contact_form: gpu_contact
+      contact_input: binary
+      contact_binarize_threshold: 0.1
+      enable_obj_orientation: true
+      enable_obj_linvel: true
+      enable_obj_angvel: true
+      enable_ft_pos: true
+      enable_ft_orientation: true
+      enable_ft_linvel: true
+      enable_ft_angvel: true
+      enable_hand_scale: true
+      enable_nut_contact: true
+      enable_nut_pos: true
+      enable_nut_dof_vel: true
+      enable_nut_dof_pos: true
+      enable_screw_joint_friction: true
+      enable_hand_position: false
+      enable_hand_orientation: false
+      enable_hand_joint_pos: false
+      enable_pgain: false
+      enable_dgain: false
+    object:
+      type: screw_contactviz
+      evalObjectType: null
+      sampleProb:
+      - 1.0
+      init_pos:
+      - 0.012
+      - -0.018
+      - 0.0
+      init_pos_noise:
+      - 0.0
+      - 0.0
+      - 0.0
+      nut_termination_history_len: 60
+      nut_stagnation_eps: 0.003
+      screw_upper_limit: 628.3185
+      thumb_range_limit: false
+      object_tilt: false
+    asset:
+      handAsset: assets/dexh13_hand/urdf/dexh13_hand_right_sim.urdf
+      fingertipBodies:
+      - right_index_tip
+      - right_middle_tip
+      - right_ring_tip
+      - right_thumb_tip
+      handRootPos:
+      - 0.11
+      - 0.02
+      - 0.217
+      handRootRPY:
+      - 3.1415
+      - 0.3
+      - 3.1415
+      handRootPosZScaleComp: 0.06
+      handRootPosNoise:
+      - 0.0
+      - 0.0
+      - 0.0
+      handInitPose:
+        right_index_joint_0: 0.3426670736
+        right_index_joint_1: 0.925279522
+        right_index_joint_2: 0.2828971177
+        right_index_joint_3: 1.1292990017
+        right_middle_joint_0: 0.0
+        right_middle_joint_1: 0.0
+        right_middle_joint_2: 0.0
+        right_middle_joint_3: 0.0
+        right_ring_joint_0: 0.0
+        right_ring_joint_1: 0.0
+        right_ring_joint_2: 0.0
+        right_ring_joint_3: 0.0
+        right_thumb_joint_0: -0.3599407768
+        right_thumb_joint_1: 1.5656383038
+        right_thumb_joint_2: 0.220286703
+        right_thumb_joint_3: 0.411966312
+      dofLowerLimits:
+      - -0.35
+      - 0.0
+      - 0.0
+      - 0.0
+      - -0.001
+      - 0.0
+      - 0.0
+      - 0.0
+      - -0.001
+      - 0.0
+      - 0.0
+      - 0.0
+      - -0.35
+      - 0.0
+      - 0.0
+      - 0.0
+      dofUpperLimits:
+      - 0.35
+      - 1.57
+      - 1.57
+      - 1.57
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.001
+      - 0.35
+      - 1.57
+      - 1.57
+      - 1.57
+    enableCameraSensors: false
+  sim:
+    dt: 0.005
+    substeps: 1
+    up_axis: z
+    use_gpu_pipeline: ${eq:${...pipeline},'gpu'}
+    gravity:
+    - 0.0
+    - 0.0
+    - -9.81
+    physx:
+      num_threads: ${....num_threads}
+      solver_type: ${....solver_type}
+      use_gpu: ${contains:'cuda',${....sim_device}}
+      num_position_iterations: 8
+      num_velocity_iterations: 0
+      max_gpu_contact_pairs: 8388608
+      num_subscenes: ${....num_subscenes}
+      contact_offset: 0.002
+      rest_offset: 0.0
+      bounce_threshold_velocity: 0.2
+      max_depenetration_velocity: 10.0
+      default_buffer_size_multiplier: 5.0
+      contact_collection: 1
+train:
+  seed: ${..seed}
+  algo: ProprioAdapt
+  network:
+    mlp:
+      units:
+      - 512
+      - 256
+      - 128
+    priv_mlp:
+      units:
+      - 256
+      - 128
+      - 8
+    point_mlp:
+      units:
+      - 32
+      - 32
+      - 32
+  load_path: ${..checkpoint}
+  ppo:
+    output_name: Dexh13HoraLightbulb_student_padapt_thesis_twofinger/thesis_twofinger_padapt_s42_30m
+    normalize_input: true
+    normalize_value: true
+    normalize_priv: true
+    normalize_point_cloud: true
+    value_bootstrap: true
+    num_actors: ${...task.env.numEnvs}
+    gamma: 0.99
+    tau: 0.95
+    learning_rate: 0.005
+    kl_threshold: 0.02
+    horizon_length: 12
+    minibatch_size: 576
+    mini_epochs: 5
+    clip_value: true
+    critic_coef: 4
+    entropy_coef: 0.0
+    e_clip: 0.2
+    bounds_loss_coef: 0.0
+    truncate_grads: true
+    grad_norm: 1.0
+    save_best_after: 0
+    save_frequency: 500
+    max_agent_steps: 10000000000
+    priv_info: true
+    use_point_cloud_info: true
+    proprio_len: 30
+    proprio_dim: 32
+    proprio_adapt: true
+    student_trainable_param_patterns:
+    - adapt_tconv

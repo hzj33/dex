@@ -1,0 +1,232 @@
+name: Dexh13HoraLightbulb
+physics_engine: 'physx'
+on_evaluation: False
+eval_cache_name: debug
+
+env:
+  # 复用现有 reset/object 放置逻辑（代码里按该字符串走不同分支）
+  initPose: 'screwdriver_inclined'
+  numEnvs: 1
+  numActions: 16
+  envSpacing: 0.5
+
+  episodeLength: 800
+  aggregateMode: 1
+
+  # Controller（与现有任务保持一致）
+  controller:
+    torque_control: True
+    controlFrequencyInv: 10  # 20Hz
+    pgain: 3
+    dgain: 0.01
+    action_scale: 0.05
+    torque_limit: 300.0
+
+  rotation_axis: '+z'
+
+  clipObservations: 5.0
+  clipActions: 1.0
+
+  reset_dist_threshold: 0.20
+  reset_z_threshold: 0.0
+
+  # 禁用 XHand 专用 action masking（Dexh13 的关节顺序不同）
+  apply_action_mask: False
+
+  # Debug-friendly termination（训练脚本里会显式开启更严格的终止条件）
+  termination:
+    grace_steps: 50
+    enable_finger_dist: False
+    enable_nut_stagnation: False
+    enable_no_contact: False
+    enable_screw_limit: False
+    log: False
+
+  forceScale: 2.0
+  randomForceProbScalar: 0.25
+  forceDecay: 0.9
+  forceDecayInterval: 0.08
+
+  hora:
+    propHistoryLen: 30
+    point_cloud_sampled_dim: 100
+
+  reward:
+    angvelClipMin: -4.0
+    angvelClipMax: 4.0
+    angvelPenaltyThres: [7.5, 15.0, 30000000, 60000000]
+    rotate_reward_scale: 2.5
+    # DexH13 专用：将 pose/torque/work 等惩罚按动作维度归一化（除以 num_actions）
+    normalize_penalties_by_num_actions: True
+    # 注意：torque/work/pose_diff 已在代码中除以 num_actions 做归一化，
+    # 因此这里的 scale 相比旧版（未归一化）需要乘以 num_actions 才能保持等效量级。
+    # 以下值已针对 DexH13（16 DOF, armature=0.02）重新调优。
+    pose_diff_penalty_scale: -1.5
+    torque_penalty_scale: -30.0
+    work_penalty_scale: -0.15
+    rotate_penalty_scale: -0.3
+    pc_z_dist_penalty_scale: -1.0
+    proximity_reward_scale: 2.0
+
+    # 软门控：鼓励拇指 +（食指或中指）抓住灯泡后再旋拧
+    two_finger_gate:
+      enable: True
+      # fingertipBodies 顺序为：index, middle, ring, thumb
+      thumb_fingertip_index: 3
+      other_fingertip_indices: [0, 1]
+      target: nut_pos
+      target_offset: [0.0, 0.0, 0.04]
+      near: 0.08
+      far: 0.13
+      min_mult: 0.20
+      power: 1.0
+      scale_with_object: True
+      apply_positive_vel_only: True
+      # tip links 现在有球体碰撞体，可以启用接触力门控
+      use_contact_force: True
+      contact_force_min: 0.5
+      contact_force_max: 2.0
+      no_grasp_penalty_scale: -0.3
+
+  baseObjScale: 1.0
+  randomization:
+    randomizeMass: True
+    randomizeMassLower: 0.04
+    randomizeMassUpper: 0.06
+    randomizeCOM: True
+    randomizeCOMLower: -0.001
+    randomizeCOMUpper: 0.001
+    randomizeFriction: True
+    randomizeFrictionLower: 0.5
+    randomizeFrictionUpper: 8.0
+    randomizeScale: True
+    randomize_hand_scale: False
+    scaleListInit: True
+    # 参考 XHand 的 scaleListInit 做法：用离散尺度 + 小扰动。
+    # 但灯泡只允许“变大”，因此这里额外设置 randomizeScaleMin/Max 做裁剪，确保实际采样 scale ∈ [1.0, 1.15]。
+    randomizeScaleList: [1.0, 1.05, 1.10, 1.15]
+    randomizeScaleMin: 1.0
+    randomizeScaleMax: 1.15
+    randomizeScaleLower: 1.0
+    randomizeScaleUpper: 1.15
+    randomizePDGains: True
+    randomizePGainLower: 2.7
+    randomizePGainUpper: 3.3
+    randomizeDGainLower: 0.009
+    randomizeDGainUpper: 0.011
+    obs_noise_e_scale: 0.01
+    obs_noise_t_scale: 0.005
+    pose_noise_scale: 0
+    action_noise_e_scale: 0.01
+    action_noise_t_scale: 0.005
+    noisy_rpy_scale: 0.1
+    noisy_pos_scale: 0.02
+
+  privInfo:
+    enableObjPos: True
+    enableObjScale: True
+    enableObjMass: True
+    enableObjCOM: True
+    enableObjFriction: True
+    enable_obj_restitution: True
+    enable_tactile: False
+    contact_input_dim: 4
+    contact_form: 'gpu_contact'
+    contact_input: 'binary'
+    contact_binarize_threshold: 0.1
+    enable_obj_orientation: True
+    enable_obj_linvel: True
+    enable_obj_angvel: True
+    enable_ft_pos: True
+    enable_ft_orientation: True
+    enable_ft_linvel: True
+    enable_ft_angvel: True
+    enable_hand_scale: True
+    enable_nut_contact: True
+    enable_nut_pos: True
+    enable_nut_dof_vel: True
+    enable_nut_dof_pos: True
+    enable_screw_joint_friction: True
+    enable_hand_position: False
+    enable_hand_orientation: False
+    enable_hand_joint_pos: False
+    enable_pgain: False
+    enable_dgain: False
+
+  object:
+    type: 'screw_lightbulb'
+    evalObjectType: null
+    sampleProb: [1.0]
+    nut_termination_history_len: 60
+    nut_stagnation_eps: 0.003
+    screw_upper_limit: 628.3185
+    thumb_range_limit: False
+    object_tilt: False
+    mesh_normal_mode: compute_per_vertex
+    # Dexh13 demo：直接把灯泡放在原点附近，便于手掌正对旋拧
+    init_pos: [0.0, 0.0, 0.0]
+    init_pos_noise: [0.005, 0.005, 0.0]
+
+  asset:
+    handAsset: "assets/dexh13_hand/urdf/dexh13_hand_right_sim.urdf"
+    mesh_normal_mode: compute_per_vertex
+    # fingertip bodies（顺序很重要）：index, middle, ring, thumb
+    fingertipBodies: ["right_index_tip", "right_middle_tip", "right_ring_tip", "right_thumb_tip"]
+    # 固定手腕：不启用 RBHand 的 wrist kinematic；通过 root pose 把手掌对准灯泡
+    # 说明：这里用 RPY（弧度）更便于微调；如果同时设置了 handRootQuat，则 handRootRPY 会被忽略。
+    # handRootRPY: [roll(x), pitch(y), yaw(z)]
+    handRootRPY: [3.1415, 0.3, 3.1415]
+    handRootPos: [0.11, 0.020, 0.195]
+    handRootPosZScaleComp: 0.06
+    # hand joint init pose（必须覆盖 URDF 中全部 revolute joints）
+    handInitPose:
+      right_index_joint_0: 0.0
+      right_index_joint_1: 0.0
+      right_index_joint_2: 0.0
+      right_index_joint_3: 0.0
+      right_middle_joint_0: 0.0
+      right_middle_joint_1: 0.0
+      right_middle_joint_2: 0.0
+      right_middle_joint_3: 0.0
+      right_ring_joint_0: 0.0
+      right_ring_joint_1: 0.0
+      right_ring_joint_2: 0.0
+      right_ring_joint_3: 0.0
+      right_thumb_joint_0: 0.0
+      right_thumb_joint_1: 0.0
+      right_thumb_joint_2: 0.0
+      right_thumb_joint_3: 0.0
+
+  enableCameraSensors: False
+
+  viewer:
+    # 默认相机放在 -X 侧（手掌侧），避免被掌部外壳遮挡导致“看不到手指”的错觉
+    camera_pos: [-0.35, -0.25, 0.18]
+    camera_target: [0.0, 0.0, 0.06]
+    draw_axes: True
+    axes_frame: nut
+    axis_length: 0.10
+    axis_thickness: 0.015
+    # 坐标轴放置位置微调：这里以 nut（旋转体）的坐标为基准；设为 0 可使坐标轴更贴近灯泡底部
+    axis_offset: [0.0, 0.0, 0.0]
+
+sim:
+  dt: 0.005
+  substeps: 1
+  up_axis: 'z'
+  use_gpu_pipeline: True
+  gravity: [0.0, 0.0, -9.81]
+  physx:
+    num_threads: 4
+    solver_type: 1
+    use_gpu: True
+    num_position_iterations: 8
+    num_velocity_iterations: 0
+    max_gpu_contact_pairs: 8388608
+    num_subscenes: 0
+    contact_offset: 0.002
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 1000.0
+    default_buffer_size_multiplier: 5.0
+    contact_collection: 1

@@ -1,0 +1,129 @@
+# DOTPG学生模型训练配置
+# 基于论文 "Bridging the Reality Gap: Dual Optimal Transport Policy Gradient"
+
+seed: ${..seed}
+algo: DOTPGStudent  # 使用DOTPG学生模型
+
+# 网络配置（与教师模型保持一致）
+network:
+  mlp:
+    units: [512, 256, 128]
+  priv_mlp:
+    units: [256, 128, 8]
+  point_mlp:
+    units: [32, 32, 32]
+
+load_path: ${..checkpoint}  # 教师模型检查点路径
+
+# PPO配置（用于教师模型和环境设置）
+ppo:
+  output_name: 'dotpg_student'
+  normalize_input: True
+  normalize_value: True
+  normalize_priv: True
+  normalize_point_cloud: True
+  value_bootstrap: True
+  num_actors: ${...task.env.numEnvs}
+  gamma: 0.99
+  tau: 0.95
+  learning_rate: 5e-3
+  kl_threshold: 0.02
+  horizon_length: 12
+  minibatch_size: 16384
+  mini_epochs: 5
+  clip_value: True
+  critic_coef: 4
+  entropy_coef: 0.0
+  e_clip: 0.2
+  bounds_loss_coef: 0.0
+  truncate_grads: True
+  grad_norm: 1.0
+  save_best_after: 0
+  save_frequency: 500
+  max_agent_steps: 10000000000
+  priv_info: True
+  use_point_cloud_info: True
+  proprio_len: 30
+  proprio_dim: 24
+  proprio_adapt: False  # DOTPG teacher-state：对齐 PPO teacher（stage1）输入
+
+# DOTPG特定配置
+# 论文Table 1和核心笔记Section 9.1
+dotpg:
+  # 状态空间模式
+  # - teacher: 直接使用 PPO teacher 的 policy 输入（obs + tanh(priv_mlp(priv)+pc_mlp(pc))）
+  # - student: 使用 proprio_hist 预测 extrin（需要 proprio_adapt=True）
+  state_mode: teacher
+
+  # 折扣因子
+  gamma: 0.99
+  
+  # 梯度惩罚系数 λ（论文公式27）
+  # 强制Lipschitz约束
+  lambda_gp: 10.0
+  
+  # 目标网络软更新率 τ（论文Section 4.3）
+  tau: 0.005
+  
+  # 学习率（双时间尺度：αφ >> αθ）
+  # 论文定理9要求
+  # 注：该任务上纯 DOTPG 的 off-policy 训练容易不稳定，这里用更保守的 LR 作为默认
+  lr_dual: 1e-4      # 对偶网络学习率 αφ
+  lr_q: 1e-4         # Q网络学习率 αψ
+  lr_policy: 3e-5    # 策略网络学习率 αθ（更小！）
+  
+  # 批大小
+  batch_size: 2048
+  
+  # 经验回放容量
+  buffer_size: 1000000
+  expert_buffer_size: 500000
+
+  # 专家缓冲区建议存 CPU（避免占显存并支持更大 expert）
+  expert_buffer_device: cpu
+  expert_buffer_dtype: float32
+  # 每个 env step 写入 expert 的 env 数量（null/0 表示写入全部 env）
+  expert_add_num_envs: 512
+  # 自动扩 expert_buffer_size 到 warmup_steps * expert_add_num_envs（仅当 expert_buffer_device=cpu 时生效）
+  auto_expert_buffer_size: True
+  max_auto_expert_buffer_size: 8000000
+  
+  # 对偶网络更新次数/迭代（J）
+  # 论文Algorithm 1: J=5
+  dual_updates_per_iter: 10
+  
+  # 策略更新延迟（类似TD3）
+  policy_delay: 10
+  
+  # 隐藏层维度
+  hidden_dim: 256
+
+  # TD3-style target policy smoothing（用于 TD target 计算）
+  target_policy_noise: 0.1
+  target_noise_clip: 0.2
+  use_huber_q_loss: True
+
+  # BC 稳定化（TD3+BC 风格）
+  bc_coef: 10.0
+  bc_pretrain_steps: 20000
+  bc_pretrain_lr: 3e-4
+  bc_alpha_max: 200.0
+  
+  # 探索噪声
+  exploration_noise: 0.005
+
+  # dual 更新时使用当前 policy(states) 的动作（更贴近当前 ρπ）
+  dual_use_current_policy_actions: True
+  dual_policy_noise: 0.0
+  
+  # dual-reward（fφ）归一化/裁剪，防止 Q 发散
+  normalize_dual_reward: True
+  dual_reward_clip: 5.0
+  dual_reward_scale: 1.0
+
+  # 专家数据模式：默认纯离线（训练中不再追加 teacher 演示）
+  online_expert: False
+
+  # 预热步数（收集 teacher 数据并填充 expert buffer）
+  # 建议覆盖多个 episode，提升 expert 的时间覆盖率（本任务 episodeLength=800）
+  warmup_steps: 4000

@@ -1,0 +1,5 @@
+1、dexh13_hand_right.urdf 是Paxini官方原版文件，指尖坐标系在指腹上的传感器位置；
+
+2、dexh13_hand_right_with_tips.urdf 是Kris_Young调整，指尖坐标系在指甲尖，适配MediaPipe遥操；
+
+注意：浏览器打开https://viewer.robotsfan.com/，将整个文件夹拖动进去，打开右上角“坐标系”，可以看到坐标系
