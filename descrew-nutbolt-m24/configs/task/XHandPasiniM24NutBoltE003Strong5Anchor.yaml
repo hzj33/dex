@@ -1,0 +1,7 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Balance5
+  - _self_
+
+env:
+  e002_cycle:
+    force_excess_scale: 0.25

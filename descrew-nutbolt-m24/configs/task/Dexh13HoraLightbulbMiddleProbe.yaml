@@ -1,0 +1,208 @@
+name: Dexh13HoraLightbulb
+physics_engine: ${..physics_engine}
+on_evaluation: False
+eval_cache_name: middle_probe
+
+env:
+  initPose: 'screwdriver_inclined'
+  numEnvs: ${resolve_default:8192,${...num_envs}}
+  numActions: 16
+  apply_action_mask: False
+  envSpacing: 0.5
+
+  episodeLength: 800
+  aggregateMode: 1
+
+  controller:
+    torque_control: True
+    controlFrequencyInv: 10
+    pgain: 3
+    dgain: 0.01
+    action_scale: 0.05
+    torque_limit: 300.0
+
+  rotation_axis: '+z'
+
+  clipObservations: 5.0
+  clipActions: 1.0
+  reset_dist_threshold: 0.20
+  reset_z_threshold: 0.0
+  normalize_penalties_by_num_actions: True
+
+  forceScale: 2.0
+  randomForceProbScalar: 0.25
+  forceDecay: 0.9
+  forceDecayInterval: 0.08
+
+  termination:
+    grace_steps: 50
+    enable_finger_dist: False
+    enable_nut_stagnation: False
+    enable_no_contact: False
+    enable_screw_limit: False
+    log: False
+
+  hora:
+    propHistoryLen: 30
+    point_cloud_sampled_dim: 100
+
+  reward:
+    angvelClipMin: -4.0
+    angvelClipMax: 4.0
+    angvelPenaltyThres: [7.5, 15.0, 30000000, 60000000]
+    rotate_reward_scale: 2.5
+    pose_diff_penalty_scale: -1.5
+    torque_penalty_scale: -30.0
+    work_penalty_scale: -0.15
+    rotate_penalty_scale: -0.3
+    pc_z_dist_penalty_scale: -1.0
+    proximity_reward_scale: 2.0
+
+  two_finger_gate:
+    enable: True
+    thumb_fingertip_index: 3
+    # Probe whether the middle finger can learn to participate before adding a
+    # full three-finger grasp gate. Fingertip order: index=0, middle=1,
+    # ring=2, thumb=3.
+    other_fingertip_indices: [1]
+    target: nut_pos
+    target_offset: [0.0, 0.0, 0.04]
+    near: 0.08
+    far: 0.13
+    min_mult: 0.20
+    power: 1.0
+    scale_with_object: True
+    apply_positive_vel_only: True
+    use_contact_force: True
+    contact_force_min: 0.5
+    contact_force_max: 2.0
+    no_grasp_penalty_scale: -0.3
+
+  baseObjScale: 1.0
+  randomization:
+    randomizeMass: True
+    randomizeMassLower: 0.04
+    randomizeMassUpper: 0.06
+    randomizeCOM: True
+    randomizeCOMLower: -0.001
+    randomizeCOMUpper: 0.001
+    randomizeFriction: True
+    randomizeFrictionLower: 0.5
+    randomizeFrictionUpper: 8.0
+    randomizeScale: True
+    randomize_hand_scale: False
+    scaleListInit: True
+    randomizeScaleList: [1.0, 1.05, 1.10, 1.15]
+    randomizeScaleMin: 1.0
+    randomizeScaleMax: 1.15
+    randomizeScaleLower: 1.0
+    randomizeScaleUpper: 1.15
+    randomizePDGains: True
+    randomizePGainLower: 2.7
+    randomizePGainUpper: 3.3
+    randomizeDGainLower: 0.009
+    randomizeDGainUpper: 0.011
+    obs_noise_e_scale: 0.01
+    obs_noise_t_scale: 0.005
+    pose_noise_scale: 0.0
+    action_noise_e_scale: 0.01
+    action_noise_t_scale: 0.005
+    noisy_rpy_scale: 0.1
+    noisy_pos_scale: 0.02
+
+  privInfo:
+    enableObjPos: True
+    enableObjScale: True
+    enableObjMass: True
+    enableObjCOM: True
+    enableObjFriction: True
+    enable_obj_restitution: True
+    enable_tactile: False
+    contact_input_dim: 4
+    contact_form: 'gpu_contact'
+    contact_input: 'binary'
+    contact_binarize_threshold: 0.1
+    enable_obj_orientation: True
+    enable_obj_linvel: True
+    enable_obj_angvel: True
+    enable_ft_pos: True
+    enable_ft_orientation: True
+    enable_ft_linvel: True
+    enable_ft_angvel: True
+    enable_hand_scale: True
+    enable_nut_contact: True
+    enable_nut_pos: True
+    enable_nut_dof_vel: True
+    enable_nut_dof_pos: True
+    enable_screw_joint_friction: True
+    enable_hand_position: False
+    enable_hand_orientation: False
+    enable_hand_joint_pos: False
+    enable_pgain: False
+    enable_dgain: False
+
+  object:
+    type: 'screw_lightbulb'
+    evalObjectType: null
+    sampleProb: [1.0]
+    init_pos: [0.0, 0.0, 0.0]
+    init_pos_noise: [0.005, 0.005, 0.0]
+    nut_termination_history_len: 60
+    nut_stagnation_eps: 0.003
+    screw_upper_limit: 628.3185
+    thumb_range_limit: False
+    object_tilt: False
+
+  asset:
+    handAsset: "assets/dexh13_hand/urdf/dexh13_hand_right_sim.urdf"
+    fingertipBodies:
+      - right_index_tip
+      - right_middle_tip
+      - right_ring_tip
+      - right_thumb_tip
+    handRootPos: [0.11, 0.020, 0.195]
+    handRootRPY: [3.1415, 0.3, 3.1415]
+    handRootPosZScaleComp: 0.06
+    handRootPosNoise: [0.0, 0.0, 0.0]
+    handInitPose:
+      right_index_joint_0: 0.3426670736
+      right_index_joint_1: 1.2325279522
+      right_index_joint_2: 0.2828971177
+      right_index_joint_3: 1.1292990017
+      right_middle_joint_0: 0.0088817632
+      right_middle_joint_1: 0.7502785110
+      right_middle_joint_2: 0.8105450249
+      right_middle_joint_3: 0.8256424212
+      right_ring_joint_0: -0.3587684602
+      right_ring_joint_1: 1.3127488565
+      right_ring_joint_2: 0.0030379546
+      right_ring_joint_3: 1.5381801319
+      right_thumb_joint_0: -0.3599407768
+      right_thumb_joint_1: 1.5656383038
+      right_thumb_joint_2: 0.5520286703
+      right_thumb_joint_3: 0.5311966312
+    dofLowerLimits: [-0.35, 0.0, 0.0, 0.0, -0.35, 0.0, 0.0, 0.0, -0.35, 0.0, 0.0, 0.0, -0.35, 0.0, 0.0, 0.0]
+    dofUpperLimits: [0.35, 1.57, 1.57, 1.57, 0.35, 1.57, 1.57, 1.57, 0.35, 1.57, 1.57, 1.57, 0.35, 1.57, 1.57, 1.57]
+
+  enableCameraSensors: False
+
+sim:
+  dt: 0.005
+  substeps: 1
+  up_axis: 'z'
+  use_gpu_pipeline: ${eq:${...pipeline},'gpu'}
+  gravity: [0.0, 0.0, -9.81]
+  physx:
+    num_threads: ${....num_threads}
+    solver_type: ${....solver_type}
+    use_gpu: ${contains:'cuda',${....sim_device}}
+    num_position_iterations: 8
+    num_velocity_iterations: 0
+    max_gpu_contact_pairs: 8388608
+    num_subscenes: ${....num_subscenes}
+    contact_offset: 0.002
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 1000.0
+    default_buffer_size_multiplier: 5.0
+    contact_collection: 1

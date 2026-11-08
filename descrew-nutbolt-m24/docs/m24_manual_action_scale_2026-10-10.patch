@@ -1,0 +1,96 @@
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/deploy_m24_e003_student.py
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/deploy_m24_e003_student.py
+@@ -18,0 +19,4 @@
++# 每步关节目标增量系数，单位 rad；手动修改后重启部署生效。
++# 0.05 保持已验证的原行为；调的是动作步幅，不是电机力矩。
++ACTION_SCALE = 0.05
++
+@@ -26,0 +31,3 @@
++        self.action_scale = float(ACTION_SCALE)
++        if not np.isfinite(self.action_scale) or self.action_scale <= 0:
++            raise ValueError('ACTION_SCALE must be finite and positive')
+@@ -34,0 +42 @@
++        self.action_scale = policy.action_scale
+@@ -46,0 +55,5 @@
++        if self.action_scale != float(self.model.action_scale):
++            # Integrate the masked action, not a previously clipped target delta.
++            # The actual output target becomes next step's previous/history input.
++            target = torch.maximum(torch.minimum(
++                previous + self.action_scale * action, self.model.upper), self.model.lower)
+@@ -84 +97 @@
+-    legacy.ACTION_SCALE = np.float32(policy.model.action_scale)
++    legacy.ACTION_SCALE = np.float32(policy.action_scale)
+@@ -158,0 +172,2 @@
++    print('动作步幅 ACTION_SCALE = %g rad/步（模型原步幅 %g）' %
++          (policy.action_scale, float(policy.model.action_scale)), flush=True)
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -11,0 +12,6 @@
++
++## 手动修改动作步幅
++
++在`deploy_m24_e003_student.py`开头修改`ACTION_SCALE = 0.05`，保存并重新启动原bash命令即可，带`--show-tactile`也读取同一设置。单位rad/策略步，是目标角度增量系数，不是输出力/扭矩；默认0.05保留已验证行为。新值必须为有限正数。非默认值按实际策略动作重新积分并限位，实际发送目标用于后续历史；模型权重和模型内部原步幅不变。运行日志的action_scale/hardware_action_scale记录新值，training_action_scale仍为模型原值。非默认步幅尚未真机验证。
++
++本机入口已包含触觉显示与动作步幅设置；原同名ZIP是此前交付快照，不含这些后续修改。
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -11 +11 @@
+-  "deployment_entry_unchanged": true,
++  "deployment_entry_unchanged": false,
+@@ -44,2 +44,2 @@
+-    "deploy_m24_e003_student.py": "d49b41c102fbb649227467bf8e63d1a49f60410d46061a5e60fafd8098b60e57",
+-    "README.md": "c16035602264598e95fa03a2e05587920eb142f167ecdb60221dfe1cbcba0bca",
++    "deploy_m24_e003_student.py": "a0080f0f82aab5e2e166edb6023d505e5ba9120a90c994e1270721dfd636e281",
++    "README.md": "732228a5b38e65553130867b8a83793768bd1b7d4b87e0373bd68bdd8ddcab8e",
+@@ -53,2 +53,3 @@
+-    "software_verification.json": "21a5b32343bc555c19fadc14cf6efa58e775822ee22b50622bf2eb3e908b849e",
+-    "run_recovery_trial.sh": "6c5b4d81a2e399316b09ab2009e73694e5cbd418d50a0106c948272b02ea43e4"
++    "software_verification.json": "e14471deb592e2df2905a48a33fb0a712b1d3cdb72aa6cc211f2f5804dc93fcc",
++    "run_recovery_trial.sh": "6c5b4d81a2e399316b09ab2009e73694e5cbd418d50a0106c948272b02ea43e4",
++    "manual_scale_verification.json": "8cca260888ccf503cfda7c6d8352ad2dab984fe50342e3337646781b1aaaf040"
+@@ -73,0 +75,9 @@
++  },
++  "manual_action_scale": {
++    "global_variable": "ACTION_SCALE",
++    "file": "deploy_m24_e003_student.py",
++    "default_rad_per_step": 0.05,
++    "requires_restart": true,
++    "target_history_uses_actual_sent_target": true,
++    "nondefault_hardware_validated": false,
++    "zip_updated": false
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/software_verification.json
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/software_verification.json
+@@ -2 +2 @@
+-  "artifact": "outputs/local_pipeline_m24_e003_recovery_fix_20261008/student_entry_clock.pt",
++  "artifact": "outputs/local_m24_deployment/e003_return_progress_recovery_20261008/student.pt",
+@@ -5 +5 @@
+-  "deployment_entry_sha256": "d49b41c102fbb649227467bf8e63d1a49f60410d46061a5e60fafd8098b60e57",
++  "deployment_entry_sha256": "a0080f0f82aab5e2e166edb6023d505e5ba9120a90c994e1270721dfd636e281",
+@@ -13,2 +13,2 @@
+-    0.3183089993399335,
+-    0.8850065692604392
++    0.26796499150805175,
++    0.7638429556391196
+--- /dev/null
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manual_scale_verification.json
+@@ -0,0 +1,20 @@
++{
++  "default_original_exact_steps": 200,
++  "custom_scales_rad": [
++    0.02,
++    0.08
++  ],
++  "custom_history_limit_mask_steps_each": 100,
++  "invalid_scale_rejected": [
++    0,
++    -0.01,
++    "inf",
++    "nan"
++  ],
++  "unclipped_action_integration_boundary": true,
++  "plain_and_tactile_custom_dry_run_steps": 20,
++  "plain_tactile_actions_targets_exact": true,
++  "model_sdk_launcher_unchanged": true,
++  "manifest_hashes_valid": true,
++  "hardware_operated": false
++}

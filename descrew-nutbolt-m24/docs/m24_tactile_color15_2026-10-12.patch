@@ -1,0 +1,53 @@
+diff --git a/DexHandSDK-debug/visualize_right_tactile.py b/DexHandSDK-debug/visualize_right_tactile.py
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -38,2 +38,2 @@
+-# Express the previous display thresholds in SDK-defined newtons.
+-DEFAULT_FORCE_MAX_N = 1.0
++# Display settings use SDK-defined newtons.
++DEFAULT_FORCE_MAX_N = 15.0
+diff --git a/Tracker-glove-teleop/scripts/start_plug_teleop_rm65b.sh b/Tracker-glove-teleop/scripts/start_plug_teleop_rm65b.sh
+--- a/Tracker-glove-teleop/scripts/start_plug_teleop_rm65b.sh
++++ b/Tracker-glove-teleop/scripts/start_plug_teleop_rm65b.sh
+@@ -99 +99 @@
+-        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-1}" --)
++        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-15}" --)
+@@ -123 +123 @@
+-    echo "Right tactile: ${DEXH13_TACTILE_HZ:-10} Hz | Scale: ${DEXH13_TACTILE_MAX_N:-1} N"
++    echo "Right tactile: ${DEXH13_TACTILE_HZ:-10} Hz | Scale: ${DEXH13_TACTILE_MAX_N:-15} N"
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+@@ -21 +21 @@
+-        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-1}"
++        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-15}"
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -25 +25 @@
+-颜色默认0–1 N，超过上限仅颜色顶满；分量模式为±1 N。黄色描边箭头仅表示SDK局部Fx/Fy，不表示Fz或已验证的世界滑动方向。箭头量程独立为0.1 N、触发门槛0.002 N，颜色量程/Fz变化不改变有效箭头；纯法向无切向方向时不伪造箭头。三指格式显示所有符合条件的点，不共用72个名额，箭长不超过单格；旧完整布局保留稀疏箭头。
++颜色默认0–15 N，超过上限仅颜色顶满；分量模式为±15 N。黄色描边箭头仅表示SDK局部Fx/Fy，不表示Fz或已验证的世界滑动方向。箭头量程独立为0.1 N、触发门槛0.002 N，颜色量程/Fz变化不改变有效箭头；纯法向无切向方向时不伪造箭头。三指格式显示所有符合条件的点，不共用72个名额，箭长不超过单格；旧完整布局保留稀疏箭头。
+@@ -27 +27 @@
+-小读数只做显示过滤，不校零：总力≤0.8 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。0.8 N等价于旧十倍显示的8 N阈值，不是已测食指噪声上限。颜色/噪声/箭头默认数值一并除以10，保持相同SDK输入下的颜色和过滤效果。窗口可修改四项设置；将噪声阈值设为0可显示小读数，原张开姿态屏蔽规则仍生效。
++小读数只做显示过滤，不校零：总力≤0.8 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。0.8 N等价于旧十倍显示的8 N阈值，不是已测食指噪声上限。噪声/箭头默认数值按此前十倍显示除以10，保持相同SDK输入下的过滤和箭头效果；颜色上限独立设为15 N。窗口可修改四项设置；将噪声阈值设为0可显示小读数，原张开姿态屏蔽规则仍生效。
+@@ -29 +29 @@
+-启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=1、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=0.8、DEXH13_TACTILE_ARROW_MIN_N=0.002、DEXH13_TACTILE_ARROW_SCALE_N=0.1。这些变量现在均以SDK定义的牛顿为单位；显式已有环境变量值继续覆盖默认值，不自动缩放。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE，当前0.04保留。
++启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=15、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=0.8、DEXH13_TACTILE_ARROW_MIN_N=0.002、DEXH13_TACTILE_ARROW_SCALE_N=0.1。这些变量现在均以SDK定义的牛顿为单位；显式已有环境变量值继续覆盖默认值，不自动缩放。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE，当前0.04保留。
+@@ -41 +41 @@
+-窗口“噪声阈值/N”按总力sqrt(Fx²+Fy²+Fz²)过滤：≤阈值显示0并隐藏箭头，超过仍显示；颜色上限不参与过滤。输入后回车或点击别处生效，状态行显示实际生效阈值及原始总力最大值；0值现在纯白。固定启动值：DEXH13_TACTILE_NOISE_N=1 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。1 N过滤不是整个0–1色条的清空指令，原始总力可超过1 N。
++窗口“噪声阈值/N”按总力sqrt(Fx²+Fy²+Fz²)过滤：≤阈值显示0并隐藏箭头，超过仍显示；颜色上限不参与过滤。输入后回车或点击别处生效，状态行显示实际生效阈值及原始总力最大值；0值现在纯白。固定启动值：DEXH13_TACTILE_NOISE_N=1 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。1 N过滤不是整个0–15色条的清空指令，原始总力可超过1 N。
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "2320c28da84ecbbb7636be31322c4bfe9761b4e1ff1634e0cfb7c1eef4bc2828",
++    "README.md": "5d1f27642d772279532375d83b9ec338f64346e87805c8d32ffe79e3330dfe9d",
+@@ -52 +52 @@
+-    "run_deploy.sh": "755d15cc46a5f0999b29aabaaa922517841b6d16f0060dfee076984ea9b148ba",
++    "run_deploy.sh": "4d506b8ec5a3d880829589b323c90764974dabe577fcdd3b517b6dfebb8e6ae1",
+@@ -73 +73 @@
+-    "viewer_sha256": "9e917683529b4605dec394664bd101dcabf765de53a367bb0aee63e138dce238",
++    "viewer_sha256": "a01ea25a955195ac5afca8f1fae68585549f1e79b2f728caecd29d7adb758d64",
+@@ -76 +76 @@
+-    "force_max_default_N": 1,
++    "force_max_default_N": 15,

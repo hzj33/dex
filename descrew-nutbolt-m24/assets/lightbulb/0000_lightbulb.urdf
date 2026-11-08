@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<robot name="lightbulb_1dof">
+
+  <!--
+    IsaacGym-compatible lightbulb asset:
+    - Fixed base link (will be fixed to world via AssetOptions.fix_base_link=True in env)
+    - 1 DOF revolute joint for "nut" link (matches existing ScrewDriver logic)
+    - Uses STL meshes colocated with this URDF under assets/lightbulb/
+  -->
+
+  <!-- Base: simple cylinder anchor -->
+  <link name="base">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03" length="0.01"/>
+      </geometry>
+      <material name="base_gray">
+        <color rgba="0.4 0.4 0.4 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03" length="0.01"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+  </link>
+
+  <!-- Bolt: intermediate fixed link (keeps 3 rigid bodies like screw assets) -->
+  <link name="bolt">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.01"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="base_to_bolt" type="fixed">
+    <parent link="base"/>
+    <child link="bolt"/>
+    <origin xyz="0 0 0.005" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Nut: the rotating lightbulb geometry -->
+  <link name="nut">
+    <visual>
+      <!-- The original STL has its long axis along +X; rotate -90deg around Y so it stands along +Z -->
+      <origin xyz="0 0 0.06" rpy="0 -1.57079632679 0"/>
+      <geometry>
+        <mesh filename="lightbulb_head.stl" scale="1.01 1.0 1.0"/>
+      </geometry>
+      <material name="glass_white">
+        <color rgba="1 1 1 0.7"/>
+      </material>
+    </visual>
+    <visual>
+      <!-- In MuJoCo, the socket is offset by +0.002 along the mesh +X axis; after rotating the mesh to stand along +Z, this becomes +Z. -->
+      <origin xyz="0 0 0.062" rpy="0 -1.57079632679 0"/>
+      <geometry>
+        <mesh filename="lightbulb_socket.stl" scale="1.05 1.0 1.0"/>
+      </geometry>
+      <material name="socket_gray">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+
+    <!-- Collision uses simplified contact meshes colocated with this URDF -->
+    <collision>
+      <origin xyz="0 0 0.06" rpy="0 -1.57079632679 0"/>
+      <geometry>
+        <mesh filename="contact0.stl"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0.06" rpy="0 -1.57079632679 0"/>
+      <geometry>
+        <mesh filename="contact1.stl"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <origin xyz="0 0 0.02" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+  </link>
+
+  <joint name="bolt_to_nut" type="revolute">
+    <parent link="bolt"/>
+    <child link="nut"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <dynamics friction="0.2"/>
+    <limit lower="0.0" upper="628.3185" effort="2.0" velocity="6.2832"/>
+  </joint>
+
+</robot>

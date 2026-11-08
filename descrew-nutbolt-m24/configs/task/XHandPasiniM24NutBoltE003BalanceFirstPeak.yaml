@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Balance5
+  - _self_
+
+env:
+  e003_peak_force_reward: true
+  e002_cycle:
+    normal_balance_scale: 0.125

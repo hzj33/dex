@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Strong5Anchor
+  - _self_
+
+ppo:
+  return_anchor_loss: kl

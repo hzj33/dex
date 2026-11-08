@@ -1,0 +1,11 @@
+defaults:
+  - XHandPasiniM24NutBoltE002Cycle
+  - _self_
+env:
+  e002_demo_reset:
+    enable: True
+    source: outputs/local_pipeline_m24_e002_cycle_20260910/release_reference_video/reset_seed_candidates.json
+    source_sha256: 4256d38edb176dfbb04e89aab11659bb353972249ef137662fbc66a7eba49e92
+    seed_steps: [40, 43]
+    fraction: 1.0
+    release_only: True

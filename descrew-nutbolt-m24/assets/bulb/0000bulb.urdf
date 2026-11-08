@@ -1,0 +1,136 @@
+<?xml version="1.0"?>
+<robot name="lightbulb">
+
+  <!-- ========== BASE (fixed platform) ========== -->
+  <link name="base">
+    <visual>
+      <origin xyz="0 0 0" />
+      <geometry>
+        <cylinder radius="0.10" length="0.01" />
+      </geometry>
+      <material name="base_material">
+        <color rgba="0.6 0.6 0.6 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" />
+      <geometry>
+        <cylinder radius="0.10" length="0.01" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0" />
+      <origin xyz="0 0 0" />
+      <inertia ixx="0.02508" ixy="0.0" ixz="0.0" iyy="0.02508" iyz="0.0" izz="0.05" />
+    </inertial>
+  </link>
+
+  <!-- ========== SHAFT (bulb socket / neck) ========== -->
+  <link name="shaft">
+    <visual>
+      <!-- 让螺口/底座更粗一点，方便抓取 -->
+      <origin xyz="0 0 0.015" />
+      <geometry>
+        <cylinder radius="0.018" length="0.03" />
+      </geometry>
+      <material name="socket_gray">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.015" />
+      <geometry>
+        <cylinder radius="0.018" length="0.03" />
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0.015" />
+      <mass value="0.05"/>
+      <inertia ixx="0.00002" ixy="0" ixz="0"
+               iyy="0.00002" iyz="0"
+               izz="0.00002"/>
+    </inertial>
+  </link>
+
+  <!-- Base–shaft connection (fixed) -->
+  <joint name="base_to_shaft" type="fixed">
+    <parent link="base" />
+    <child  link="shaft" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+  <!-- ========== HANDLE (bulb glass + small neck) ========== -->
+  <link name="handle">
+    <!-- 玻璃泡（视觉） -->
+    <visual>
+      <!-- 把球体中心放高一点，让它像灯泡泡壳 -->
+      <origin xyz="0 0 0.085" />
+      <geometry>
+        <sphere radius="0.045" />
+      </geometry>
+      <material name="glass">
+        <color rgba="0.9 0.95 1.0 0.35"/>
+      </material>
+    </visual>
+
+    <!-- 旋转可视化标记（仅视觉，不影响碰撞/动力学） -->
+    <!-- 放在球体侧面，绕 z 轴旋转时会形成明显“指针”效果 -->
+    <visual>
+      <origin xyz="0.040 0 0.085" rpy="0 0 0" />
+      <geometry>
+        <box size="0.018 0.004 0.030" />
+      </geometry>
+      <material name="rotation_marker_red">
+        <color rgba="0.95 0.15 0.10 1" />
+      </material>
+    </visual>
+
+    <!-- 玻璃泡（碰撞）：建议仍用球体，稳定 -->
+    <collision>
+      <origin xyz="0 0 0.085" />
+      <geometry>
+        <sphere radius="0.045" />
+      </geometry>
+    </collision>
+
+    <!-- 玻璃颈部（视觉，细一点） -->
+    <visual>
+      <origin xyz="0 0 0.045" />
+      <geometry>
+        <cylinder radius="0.020" length="0.05" />
+      </geometry>
+      <material name="glass_neck">
+        <color rgba="0.8 0.85 0.9 0.35"/>
+      </material>
+    </visual>
+
+    <!-- 颈部（碰撞，可选；如果接触太多可注释掉） -->
+    <collision>
+      <origin xyz="0 0 0.045" />
+      <geometry>
+        <cylinder radius="0.020" length="0.05" />
+      </geometry>
+    </collision>
+
+    <inertial>
+      <!-- 质量别太大，否则拧起来惯量太夸张 -->
+      <origin xyz="0 0 0.07" />
+      <mass value="0.10"/>
+      <inertia ixx="0.00008" ixy="0" ixz="0"
+               iyy="0.00008" iyz="0"
+               izz="0.00008"/>
+    </inertial>
+  </link>
+
+  <!-- Handle–shaft connection (revolute joint for training)-->
+  <joint name="handle_to_shaft" type="revolute">
+    <parent link="shaft"/>
+    <child  link="handle"/>
+    <!-- 保持你原来 0.01 的偏移也可以；这里稍微抬高一点，让旋转轴更像灯泡轴 -->
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis  xyz="0 0 -1" />
+    <dynamics friction="0.2"/>
+    <limit lower="0.0" upper="628.3185" effort="2.0" velocity="6.2832" />
+  </joint>
+
+</robot>

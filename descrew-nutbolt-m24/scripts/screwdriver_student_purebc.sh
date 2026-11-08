@@ -1,0 +1,21 @@
+#!/bin/bash
+GPUS=$1
+SEED=$2
+CACHE=$3
+
+array=( $@ )
+len=${#array[@]}
+EXTRA_ARGS=${array[@]:3:$len}
+
+CUDA_VISIBLE_DEVICES=${GPUS} \
+python train.py task=XHandHoraScrewDriver headless=True seed=${SEED} \
+train.algo=PureBC \
+train.ppo.proprio_adapt=True train.ppo.output_name=XHandHoraScrewDriver_student_purebc/${CACHE} \
+experiment=student_sim_purebc \
+task.env.randomization.obs_noise_t_scale=0.01 \
+task.env.randomization.obs_noise_e_scale=0.02 \
+task.env.numEnvs=48 \
+wandb_activate=False \
+task.env.reset_dist_threshold=0.15 \
+"checkpoint=outputs/XHandHoraScrewDriver_teacher/${CACHE}/stage1_nn/best_reward_*.pth" \
+${EXTRA_ARGS}

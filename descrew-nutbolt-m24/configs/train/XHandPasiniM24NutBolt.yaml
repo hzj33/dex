@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniNutBolt
+  - _self_
+
+ppo:
+  output_name: 'XHandPasiniM24NutBolt'

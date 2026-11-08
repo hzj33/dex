@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Balance5Capped
+  - _self_
+
+ppo:
+  return_anchor_coef: 1.0

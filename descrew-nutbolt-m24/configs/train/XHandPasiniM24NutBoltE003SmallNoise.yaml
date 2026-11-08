@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE003FreezeNorm
+  - _self_
+
+ppo:
+  init_action_std_scale: 0.25

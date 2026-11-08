@@ -1,0 +1,106 @@
+defaults:
+  - XHandPasiniM24NutBolt
+  - _self_
+
+# E002-A only: a nominal, single monotonic pair-drive stroke.  The task name
+# remains registered to XHandPasini; this separate config preserves E001.
+name: XHandPasiniM24NutBolt
+
+env:
+  # M24 nut_joint has URDF axis [0, 0, -1]. Positive nut DOF travel,
+  # Cartesian tangents and signed axial torque must use the same world axis.
+  # This changes neither the force-on-nut sign nor any acceptance threshold.
+  rotation_axis: '-z'
+  # Three 32-value history frames plus deterministic [drive, release, return,
+  # regrasp, elapsed] command tail. Historical 96-D policies remain unaffected.
+  numObservations: 101
+  episodeLength: 100
+  action_mask_indices: [4, 5, 6, 7, 8, 9, 10, 11]
+  # The parent task historically injects +/-5% joint-range reset noise even
+  # with domain randomization disabled. A1 must use the calibrated pose exactly.
+  hand_init_dof_noise_fraction: 0.0
+  log_debug_metrics: True
+
+  object:
+    init_pos_noise: [0.0, 0.0, 0.0]
+
+  # Disable E001's permissive phase reward completely.
+  r1_motion:
+    enable: False
+
+  # No legacy PPO shaping is used by the E002 early-return reward path. These
+  # values remain explicit in the resolved config for auditability.
+  reward:
+    rotate_reward_scale: 0.0
+    pose_diff_penalty_scale: 0.0
+    torque_penalty_scale: 0.0
+    work_penalty_scale: 0.0
+    rotate_penalty_scale: 0.0
+    pc_z_dist_penalty_scale: 0.0
+    proximity_reward_scale: 0.0
+
+  # Nominal A1 curriculum: fixed saved pose and object, no external force or
+  # domain randomization. A2 may restore one family only after A1 accepts.
+  forceScale: 0.0
+  randomForceProbScalar: 0.0
+  randomization:
+    randomizeMass: False
+    randomizeCOM: False
+    randomizeFriction: False
+    randomizeScale: False
+    randomizePDGains: False
+    obs_noise_e_scale: 0.0
+    obs_noise_t_scale: 0.0
+    action_noise_e_scale: 0.0
+    action_noise_t_scale: 0.0
+    noisy_rpy_scale: 0.0
+    noisy_pos_scale: 0.0
+
+  e002_motion:
+    enable: True
+    # User-authorized 2026-09-10: actual nut contact and new rotation govern
+    # drive milestones/success; normal-only torque remains diagnostic.
+    # Historical behavior is reproducible with strict_normal_proxy.
+    acceptance_mode: contact_progress
+    # Positive nut DOF travel is physical -z; A0c must still validate force_sign.
+    direction: 1.0
+    force_sign: -1.0
+    # Correct the application points of the measured normal contact forces.
+    # Friction moments are not exposed by this Gym contact API.
+    torque_source: contact_point_normal
+    contact_force_on: 0.30
+    contact_force_off: 0.15
+    contact_dist_on: 0.045
+    contact_dist_off: 0.050
+    torque_min: 0.01
+    torque_saturation: 0.10
+    pair_gate_min: 0.50
+    target_angle: 0.5235987756     # 30 deg
+    target_band: 0.0872664626      # +/-5 deg
+    delta_ref: 0.0523598776        # 3 deg / policy step
+    drive_deadline_steps: 80
+    # Physical contact acquisition and loss are distinct from the positive
+    # torque gate. Static stable contact is valid and earns no recurring reward.
+    contact_acquire_deadline_steps: 16
+    contact_stable_steps: 3
+    contact_loss_grace_steps: 3
+    approach_scale: 0.5
+    contact_bonus: 1.0
+    invalid_forward_scale: 4.0
+    # Penalize nut-contact deficiency without a normal-torque veto.
+    invalid_forward_source: contact_quality
+    # Contact-weighted progress from nut-only records. Reward scales unchanged.
+    forward_source: nut_contact_quality
+    target_hold_steps: 4
+    workspace_radius: 0.075
+    hard_step_angle: 0.2617993878  # 15 deg
+    overspeed_angle: 0.0872664626 # 5 deg
+    overshoot_angle: 0.6108652382  # 35 deg
+    phase_command_dim: 5
+
+# Public per-contact records require CPU tensors. Physics remains GPU PhysX;
+# policy observations are copied to CUDA for the existing PPO entrypoint.
+sim:
+  use_gpu_pipeline: False
+  physx:
+    use_gpu: True

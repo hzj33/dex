@@ -1,0 +1,3 @@
+name	status	max_best	last_best	median_last_fps	max_mem_mib	max_util_pct	saved_best_count	errors	output
+dual_metric_action2	status=124	max_best=1386.54	last_best=1386.54	median_last_fps=8015.1	max_mem_mib=6117	max_util_pct=69	saved_best_count=3069	errors=0	output=Dexh13HoraLightbulb_student_dotpg_codrive/theory_iter2_20260504_092416_dual_metric_action2
+dual_bc5	status=124	max_best=2904.14	last_best=2904.14	median_last_fps=8161.7	max_mem_mib=6117	max_util_pct=71	saved_best_count=3814	errors=0	output=Dexh13HoraLightbulb_student_dotpg_codrive/theory_iter2_20260504_092416_dual_bc5

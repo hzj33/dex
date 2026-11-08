@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Unload
+  - _self_
+
+env:
+  e002_cycle:
+    force_excess_scale: 0.05
+    force_limit: 5.0

@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE002RobustTime
+  - _self_
+
+env:
+  controller:
+    # Frozen E002 sensitivity candidate; not a hardware-calibrated gain/limit.
+    pgain: 2.4

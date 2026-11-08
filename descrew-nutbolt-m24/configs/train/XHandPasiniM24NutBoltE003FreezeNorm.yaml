@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE003BalanceFirstPeak
+  - _self_
+
+ppo:
+  freeze_input_stats: true

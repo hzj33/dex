@@ -1,0 +1,98 @@
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -33 +33 @@
+-## 每次启动自动触觉校零
++## 启动自动触觉校零（已关闭）
+@@ -35,5 +35 @@
+-普通M24部署与--show-tactile均在SDK连接成功且确认右手后调用一次calibrateSensor()，成功后等待1秒，再进入原电机初始化/使能/初始姿态与策略流程。启动时触觉面必须保持无接触，避免把实际接触载荷作为零偏；程序不额外发送张开动作，也不能自行证明已经无接触。
+-
+-返回False、接口异常或等待被中断时不继续启动策略，沿原清理路径断开。dry-run跳过真实SDK和校零。run_metadata.json新增tactile_calibration，记录状态、调用数、返回结果、起止时间与1秒等待。校零不会在每帧重做，不清零策略历史，不改变动作步幅/模型/显示换算。
+-
+-接口与1秒等待依据本机DexH13 SDK V2.1.1手册及其触觉示例；本次仅用假SDK验证流程，实际零漂改善待真机确认。原ZIP仍为历史快照。
++2026-10-10按用户要求关闭calibrateSensor()：普通部署与--show-tactile均不调用，也不等待校零；连接确认右手后直接进入原电机初始化/使能流程。日志tactile_calibration记录enabled=false、status=disabled_by_user、calls=0。现有白底蓝色热力图、显示换算和策略保持。
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "e5a83bd71a00449b4b1c405b3909d3c56e4bc265c58e2482f38612579438f5cf",
++    "README.md": "0bcd156277910a4314048fea6d30658bbfd80fc11c31c66e7e02a85aa0ea19f8",
+@@ -47 +47 @@
+-    "m24_legacy_deployment.py": "dcf23b14b0d05cde29af39c143a21490cb3190f673f295b72d920ef4d3a1fc78",
++    "m24_legacy_deployment.py": "e5348f87c62e56576e2aeece4ce2adbcac69044b74859448d53c5fb3af6fb2a5",
+@@ -58 +58,2 @@
+-    "tactile_blue_style_verification.json": "2aadfa97bb52ae81e4e9bcc84f27ca08e4fc7084b22aa849885ff5f75b8e3593"
++    "tactile_blue_style_verification.json": "2aadfa97bb52ae81e4e9bcc84f27ca08e4fc7084b22aa849885ff5f75b8e3593",
++    "tactile_calibration_off_verification.json": "936f5131eebf07d744030e5fc764140fda8542e3a7f5f52656a47e7871fb60ed"
+@@ -107 +108 @@
+-    "enabled": true,
++    "enabled": false,
+@@ -109,2 +110,2 @@
+-    "per_real_run_calls": 1,
+-    "wait_seconds": 1.0,
++    "per_real_run_calls": 0,
++    "wait_seconds": 0.0,
+@@ -114,3 +115,4 @@
+-    "abort_on_failure": true,
+-    "requires_no_contact": true,
+-    "hardware_verified": false
++    "abort_on_failure": false,
++    "requires_no_contact": false,
++    "hardware_verified": false,
++    "status": "disabled_by_user"
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/m24_legacy_deployment.py
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/m24_legacy_deployment.py
+@@ -613,2 +613,2 @@
+-        self.tactile_calibration = dict(enabled=True, sdk_method='calibrateSensor',
+-            status='pending', calls=0, wait_seconds=1.0)
++        self.tactile_calibration = dict(enabled=False, sdk_method='calibrateSensor',
++            status='disabled_by_user', calls=0, wait_seconds=0.0)
+@@ -625,18 +624,0 @@
+-        print('[tactile-zero] 校零开始；请保持触觉面无接触。', flush=True)
+-        calibration = self.tactile_calibration
+-        calibration['calls'] += 1
+-        calibration['started_at'] = utc_now()
+-        try:
+-            calibration['returned_success'] = bool(self.control.calibrateSensor())
+-            if not calibration['returned_success']:
+-                raise RuntimeError('DexH13 SDK calibrateSensor failed; deployment aborted')
+-            calibration['status'] = 'settling'
+-            time.sleep(calibration['wait_seconds'])
+-            calibration['status'] = 'completed'
+-            calibration['ended_at'] = utc_now()
+-        except BaseException as exc:
+-            calibration['status'] = 'interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed'
+-            calibration['error'] = str(exc)
+-            calibration['ended_at'] = utc_now()
+-            raise
+-        print('[tactile-zero] 校零成功，继续原部署。', flush=True)
+--- /dev/null
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/tactile_calibration_off_verification.json
+@@ -0,0 +1,29 @@
++{
++  "cases": [
++    {
++      "case": "plain",
++      "exit": 0,
++      "calibration": {
++        "calls": 0,
++        "enabled": false,
++        "sdk_method": "calibrateSensor",
++        "status": "disabled_by_user",
++        "wait_seconds": 0.0
++      }
++    },
++    {
++      "case": "tactile",
++      "exit": 0,
++      "calibration": {
++        "calls": 0,
++        "enabled": false,
++        "sdk_method": "calibrateSensor",
++        "status": "disabled_by_user",
++        "wait_seconds": 0.0
++      }
++    }
++  ],
++  "policy_outputs_identical": true,
++  "protected_hashes_unchanged": true,
++  "hardware_operated": false
++}

@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE002
+  - _self_
+
+ppo:
+  learning_rate: 0.0001

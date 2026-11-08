@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Force5
+  - _self_
+
+env:
+  e002_cycle:
+    normal_balance_scale: 0.025
+    normal_moment_reference: 0.05

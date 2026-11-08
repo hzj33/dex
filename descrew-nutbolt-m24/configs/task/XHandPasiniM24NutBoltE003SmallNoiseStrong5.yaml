@@ -1,0 +1,7 @@
+defaults:
+  - XHandPasiniM24NutBoltE003SmallNoise
+  - _self_
+
+env:
+  e002_cycle:
+    force_excess_scale: 0.25

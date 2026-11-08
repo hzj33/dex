@@ -1,0 +1,7 @@
+defaults:
+  - XHandPasiniM24NutBoltE003SmallNoiseStrong5
+  - _self_
+
+ppo:
+  bounds_loss_coef: 0.01
+  bounds_loss_scope: e003_nonreturn_active

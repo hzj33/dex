@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<robot name="m24x3_160_hex_nut_bolt">
+  <!-- Dimensions are in metres. The head is the fixed base of the task. -->
+  <link name="base">
+    <visual>
+      <geometry><mesh filename="../../meshes/m24_hex_bolt_head_36x15.stl"/></geometry>
+      <material name="black_oxide"><color rgba="0.045 0.050 0.055 1"/></material>
+    </visual>
+    <collision>
+      <geometry><mesh filename="../../meshes/m24_hex_bolt_head_36x15.stl"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <origin xyz="0 0 -0.0075"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <link name="bolt">
+    <!-- Analytic core first: point-cloud tools read this cylinder. -->
+    <visual>
+      <origin xyz="0 0 0.08"/>
+      <geometry><cylinder radius="0.0105" length="0.160"/></geometry>
+      <material name="black_oxide"/>
+    </visual>
+    <visual>
+      <geometry><mesh filename="../../meshes/m24x3_bolt_thread_160.stl"/></geometry>
+      <material name="black_oxide"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.08"/>
+      <geometry><cylinder radius="0.012" length="0.160"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.57"/>
+      <origin xyz="0 0 0.08"/>
+      <inertia ixx="0.001237" ixy="0" ixz="0" iyy="0.001237" iyz="0" izz="0.000041"/>
+    </inertial>
+  </link>
+
+  <link name="nut">
+    <visual>
+      <geometry><mesh filename="../../meshes/m24x3_hex_nut_36x21p5.stl"/></geometry>
+      <material name="black_oxide"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="../../meshes/m24x3_hex_nut_36x21p5.stl"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.12"/>
+      <inertia ixx="0.0000198" ixy="0" ixz="0" iyy="0.0000198" iyz="0" izz="0.0000303"/>
+    </inertial>
+    <!-- Colored top markers make rotation direction visible in the viewer. -->
+    <visual>
+      <origin xyz="0 0 0.0109"/>
+      <geometry><box size="0.0012 0.031 0.0003"/></geometry>
+      <material name="marker_red"><color rgba="0.85 0.05 0.03 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.0111" rpy="0 0 1.5707963"/>
+      <geometry><box size="0.0012 0.031 0.0003"/></geometry>
+      <material name="marker_blue"><color rgba="0.03 0.15 0.85 1"/></material>
+    </visual>
+  </link>
+
+  <joint name="base_screw_fixed" type="fixed">
+    <parent link="base"/>
+    <child link="bolt"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="nut_joint" type="revolute">
+    <parent link="bolt"/>
+    <child link="nut"/>
+    <origin xyz="0 0 0.125" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <dynamics friction="0.2" damping="0.01"/>
+    <limit lower="0.0" upper="628.3185" effort="2.0" velocity="6.2832"/>
+  </joint>
+</robot>

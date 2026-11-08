@@ -1,0 +1,183 @@
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -335 +335 @@
+-        ((247, 251, 255), (222, 235, 247), (198, 219, 239),
++        ((255, 255, 255), (222, 235, 247), (198, 219, 239),
+@@ -383,0 +384 @@
++        self.display_zero_fingers = ()
+@@ -504,0 +506,3 @@
++        for finger in self.display_zero_fingers:
++            start, stop = {'index': (0, 300), 'middle': (300, 600), 'thumb': (900, 1140)}[finger]
++            self.display_force[start:stop] = 0
+@@ -540,0 +545,3 @@
++            zero_fingers = tuple(message.get('display_zero_fingers', ()))
++            if any(f not in ('index', 'middle', 'thumb') for f in zero_fingers):
++                raise ValueError('Invalid display-zero finger')
+@@ -556,0 +564 @@
++        self.display_zero_fingers = zero_fingers
+@@ -574,0 +583,4 @@
++            peak = float(self.np.max(self.np.linalg.norm(self.force[self.visible_indices], axis=1)))
++            text += f'\n生效置零阈值 ≤ {self.noise_floor:g} N（总力） · 原始总力最大 {peak:.2f} N'
++            if self.display_zero_fingers:
++                text += ' · 张开姿态：三指显示强制0（原始读数保留）'
+@@ -579,0 +592,4 @@
++        # Commit pending noise text when clicking away, not only on Enter.
++        box = self.setting_boxes['noise_floor']
++        if event.inaxes is not box.ax and box.text != f'{self.noise_floor:g}':
++            self._set_number('noise_floor', box.text)
+@@ -605,0 +622,3 @@
++        finger = {'食': 'index', '中': 'middle', '拇': 'thumb'}.get(sensor.name[0])
++        if finger in self.display_zero_fingers:
++            state = '张开姿态强制显示0（非校零）'
+--- a/DexHandSDK-debug/visualize_m24_tactile.py
++++ b/DexHandSDK-debug/visualize_m24_tactile.py
+@@ -22,0 +23 @@
++import os
+@@ -38,0 +40,28 @@
++# Display-only open-pose gate; initial angles require checking on the hardware.
++OPEN_INDEX_DEG = float(os.environ.get('DEXH13_TACTILE_OPEN_INDEX_DEG', '50'))
++OPEN_THUMB_DEG = float(os.environ.get('DEXH13_TACTILE_OPEN_THUMB_DEG', '28'))
++OPEN_HYSTERESIS_DEG = 2.0
++OPEN_FEEDBACK_MAX_AGE = 0.25
++if not all(math.isfinite(v) and 0 <= v <= 90 for v in (OPEN_INDEX_DEG, OPEN_THUMB_DEG)):
++    raise ValueError('Tactile open-pose thresholds must be finite degrees in [0,90]')
++
++
++class OpenPoseDisplayGate:
++    """Suppress three-finger display only while both measured opening joints are low."""
++    def __init__(self):
++        self.opened = False
++
++    def evaluate(self, feedback, captured):
++        if feedback is None or not 0 <= captured - feedback[1] <= OPEN_FEEDBACK_MAX_AGE:
++            self.opened = False
++            return ()
++        q, _ = feedback
++        if len(q) != 16 or not all(math.isfinite(float(v)) for v in q):
++            self.opened = False
++            return ()
++        margin = OPEN_HYSTERESIS_DEG if self.opened else 0.0
++        self.opened = (math.degrees(float(q[1])) <= OPEN_INDEX_DEG + margin and
++                       math.degrees(float(q[14])) <= OPEN_THUMB_DEG + margin)
++        return ('index', 'middle', 'thumb') if self.opened else ()
++
++
+@@ -47,0 +77 @@
++        self.joint_feedback = None
+@@ -55 +85,2 @@
+-            return super().read_detail()
++            sample = super().read_detail()
++            return None if sample is None else (*sample, self.joint_feedback)
+@@ -72,0 +104 @@
++        gate = OpenPoseDisplayGate()
+@@ -81 +113 @@
+-                    raw, captured, duration_ms = sample
++                    raw, captured, duration_ms, feedback = sample
+@@ -85,0 +118 @@
++                        "display_zero_fingers": gate.evaluate(feedback, captured),
+@@ -119 +152,3 @@
+-                return super().read_joint_pos()
++                q = super().read_joint_pos()
++                self.control.joint_feedback = (tuple(float(v) for v in q), time.monotonic())
++                return q
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -37,0 +38,8 @@
++
++## 手动显示置零阈值与张开屏蔽
++
++窗口“噪声阈值/N”按总力sqrt(Fx²+Fy²+Fz²)过滤：≤阈值显示0并隐藏箭头，超过仍显示；颜色上限不参与过滤。输入后回车或点击别处生效，状态行显示实际生效阈值及原始总力最大值；0值现在纯白。固定启动值：DEXH13_TACTILE_NOISE_N=10 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。10 N过滤不是整个0–10色条的清空指令，原始总力可超过10 N。
++
++M24显示适配缓存原策略已经读取的实际关节，不新增SDK读写。index_1≤50°且thumb_2≤28°时三指（index/middle/thumb）显示强制0，任一关节高于对应阈值+2°恢复。反馈缺失或超过0.25秒不屏蔽。阈值仅初始显示设置，未实测确认接触分界，不由关节推断无接触；中指随两指张开门控，完整布局无名指不屏蔽。通过DEXH13_TACTILE_OPEN_INDEX_DEG和DEXH13_TACTILE_OPEN_THUMB_DEG改初值并重启，例如DEXH13_TACTILE_OPEN_INDEX_DEG=50 DEXH13_TACTILE_OPEN_THUMB_DEG=28 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。
++
++只改显示，不校零/改原始力/策略/动作历史/停止行为。自动calibrateSensor仍关闭。点击保留原始读数并标注张开强制0；实际零漂未修正。验证与模拟截图见outputs/local_pipeline_m24_tactile_open_zero_20261010。
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "0bcd156277910a4314048fea6d30658bbfd80fc11c31c66e7e02a85aa0ea19f8",
++    "README.md": "ec325245f48e4b65bf40713fbf6f69ba91bae13a7c6e06a666acd135a2fe62f3",
+@@ -59 +59,2 @@
+-    "tactile_calibration_off_verification.json": "936f5131eebf07d744030e5fc764140fda8542e3a7f5f52656a47e7871fb60ed"
++    "tactile_calibration_off_verification.json": "936f5131eebf07d744030e5fc764140fda8542e3a7f5f52656a47e7871fb60ed",
++    "tactile_open_zero_verification.json": "2047388efadebe28c8d11bc768a70aca273fa6fb4ae282664257c1d3eb5e6f71"
+@@ -70 +71 @@
+-    "adapter_sha256": "db8261897eb548a4b70dfbc1e9fecc738950aca30e8ecc06a77e7fd0fc58de55",
++    "adapter_sha256": "c1750d8a7b783b75415920592d6af3e84d4fd4f9cc4cbc20f1f600106f2645c2",
+@@ -72 +73 @@
+-    "viewer_sha256": "05bc3b10a092b729dfe8e80bdb252f122ca7e660653c6ab5b16a125d87ab933c",
++    "viewer_sha256": "d6a8dd4ed5d4d81dedc033037f6c89930f2e5cf4cc6406cbbdaf5916a24b4803",
+@@ -96 +97,27 @@
+-    "appearance": "white background, fine grid, light-to-dark blue magnitude, outlined yellow tangent arrows"
++    "appearance": "white background, fine grid, light-to-dark blue magnitude, outlined yellow tangent arrows",
++    "zero_color": "white",
++    "noise_threshold_commit": "Enter or click away",
++    "open_pose_display_zero": {
++      "enabled": true,
++      "measured_joint_indices": [
++        1,
++        14
++      ],
++      "thresholds_deg": [
++        50,
++        28
++      ],
++      "threshold_environments": [
++        "DEXH13_TACTILE_OPEN_INDEX_DEG",
++        "DEXH13_TACTILE_OPEN_THUMB_DEG"
++      ],
++      "hysteresis_deg": 2,
++      "feedback_max_age_seconds": 0.25,
++      "fingers": [
++        "index",
++        "middle",
++        "thumb"
++      ],
++      "hardware_thresholds_verified": false,
++      "raw_force_modified": false
++    }
+--- /dev/null
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/tactile_open_zero_verification.json
+@@ -0,0 +1,43 @@
++{
++  "display": {
++    "checks": [
++      "10N_threshold_zeros_5N_and_10N_preserves_11_31N_vector_norm",
++      "color_limit_does_not_zero_force",
++      "pending_threshold_commits_on_click_away_and_zero_is_white",
++      "measured_open_gate_hysteresis_missing_and_stale_feedback",
++      "both_layouts_zero_colors_and_arrows_preserve_raw_and_ring_restore_on_close",
++      "deployment_model_legacy_launcher_unchanged"
++    ],
++    "hardware_operated": false,
++    "open_thresholds_hardware_verified": false
++  },
++  "deployment": {
++    "cases": [
++      {
++        "case": "plain",
++        "exit": 0,
++        "calibration": {
++          "calls": 0,
++          "enabled": false,
++          "sdk_method": "calibrateSensor",
++          "status": "disabled_by_user",
++          "wait_seconds": 0.0
++        }
++      },
++      {
++        "case": "tactile",
++        "exit": 0,
++        "calibration": {
++          "calls": 0,
++          "enabled": false,
++          "sdk_method": "calibrateSensor",
++          "status": "disabled_by_user",
++          "wait_seconds": 0.0
++        }
++      }
++    ],
++    "policy_outputs_identical": true,
++    "protected_hashes_unchanged": true,
++    "hardware_operated": false
++  }
++}

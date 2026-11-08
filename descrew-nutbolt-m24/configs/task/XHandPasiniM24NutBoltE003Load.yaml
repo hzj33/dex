@@ -1,0 +1,11 @@
+defaults:
+  - XHandPasiniM24NutBoltE002RobustTime
+  - _self_
+
+env:
+  e002_cycle:
+    # Local adaptation: penalize static load, with extra one-finger drive cost.
+    # 20N is rounded from baseline index P95=19.26N, not a hardware limit.
+    load_cost_scale: 0.1
+    load_force_reference: 20.0
+    unpaired_load_multiplier: 2.0

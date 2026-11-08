@@ -1,0 +1,6 @@
+defaults:
+  - XHandPasiniM24NutBoltE003BoundedMean
+  - _self_
+
+ppo:
+  bounds_loss_coef: 0.1

@@ -1,0 +1,66 @@
+defaults:
+  - XHandPasiniNutBolt
+  - _self_
+
+name: XHandPasiniM24NutBolt
+
+env:
+  # E001/R1-motion: index and thumb only. Keeping this in the task contract
+  # prevents training or headed evaluation from silently re-enabling middle/ring.
+  apply_action_mask: True
+  action_mask_indices: [4, 5, 6, 7, 8, 9, 10, 11]
+  log_debug_metrics: True
+
+  # R1 does not add a physical contact-load penalty. Net fingertip contact
+  # force is a diagnostic proxy (and can include non-nut contacts); the reward
+  # credits positive rotation only when both fingers contribute positive torque.
+  r1_motion:
+    enable: True
+    contact_force_on: 0.30
+    contact_force_off: 0.15
+    contact_dist_on: 0.045
+    contact_dist_off: 0.050
+    torque_min: 0.01
+    torque_clip: 0.10
+    force_sign: -1.0
+    drive_stroke: 0.12
+    drive_max_steps: 16
+    release_window_steps: 5
+    return_min_steps: 3
+    release_bonus_scale: 0.20
+    unload_asymmetry_scale: 0.15
+    return_drag_scale: 0.10
+    return_reverse_scale: 0.50
+
+  # User-saved M24 pose from the keyboard tuner on 2026-08-05.
+  asset:
+    handRootPos: [0.096000, 0.096000, 0.273000]
+    handRootRPY: [3.089140, 0.526893, 3.141500]
+    handInitPose:
+      right_index_joint_0: 0.1299999803
+      right_index_joint_1: 0.9700000286
+      right_index_joint_2: 0.2599999607
+      right_index_joint_3: 0.3692995608
+      right_middle_joint_0: 0.0000000000
+      right_middle_joint_1: 0.0000000000
+      right_middle_joint_2: 0.0000000000
+      right_middle_joint_3: 0.0000000000
+      right_ring_joint_0: 0.0000000000
+      right_ring_joint_1: 0.0000000000
+      right_ring_joint_2: 0.0000000000
+      right_ring_joint_3: 0.0000000000
+      right_thumb_joint_0: -0.1899999678
+      right_thumb_joint_1: 1.4100002050
+      right_thumb_joint_2: 0.6399999261
+      right_thumb_joint_3: 0.4919663370
+
+  object:
+    type: 'screw_m24hex'
+    evalObjectType: null
+    sampleProb: [1.0]
+    init_pos_noise: [0.0075, 0.0075, 0.0]
+    nut_termination_history_len: 70
+    nut_stagnation_eps: 0.003
+    screw_upper_limit: 628.3185
+    thumb_range_limit: False
+    object_tilt: False

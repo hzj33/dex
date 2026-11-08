@@ -1,0 +1,13 @@
+defaults:
+  - XHandPasiniM24NutBoltE002
+  - _self_
+
+env:
+  episodeLength: 440
+  e002_cycle:
+    enable: True
+    stroke_angle: 0.3490658504 # Approximately20degree demonstrated stable stroke.
+    return_sector_tolerance: 0.0872664626 # 5degrees; radial clearance remains free.
+    event_dwell_steps: 2
+    phase_deadlines: [80, 40, 60, 40]
+    goal_cycles: 2

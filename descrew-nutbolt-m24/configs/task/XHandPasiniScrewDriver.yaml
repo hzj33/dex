@@ -1,0 +1,187 @@
+name: XHandPasiniScrewDriver
+physics_engine: ${..physics_engine}
+on_evaluation: False
+eval_cache_name: debug
+
+env:
+  initPose: 'screwdriver_inclined'
+  # Task-specific initial pose override (from pose dump).
+
+  customInitDofPos: [0.34266707360744476, 
+  1.2325279521942139, 
+  0.28289711773395538, 
+  1.1292990016937256, 
+  -0.14888176321983337, 
+  0.8502785110473633, 
+  0.9005450248718262, 
+  0.355642421245575, 
+  -0.3487684601545334, 
+  0.0027488565444946, 
+  0.0030379545688629, 
+  0.0081801319122314, 
+  -0.1494077682495117, 
+  1.5656383037567139, 
+  0.6220286703109741, 
+  0.651196631193161]
+
+  numEnvs: ${resolve_default:8192,${...num_envs}}
+  numActions: 16 # pasini = 16
+  envSpacing: 0.5
+
+  episodeLength: 800
+  aggregateMode: 1
+
+  controller:
+    torque_control: True
+    controlFrequencyInv: 10  # 20Hz
+    pgain: 3
+    dgain: 0.01
+    action_scale: 0.05
+    # Optional: low-pass filter joint targets to reduce high-frequency twitching.
+    # 0.0 disables; 0.1~0.3 is a reasonable starting range for fine-tuning.
+    target_smoothing_alpha: 0.0
+    torque_limit: 300.0
+
+  rotation_axis: '+z'
+
+  clipObservations: 5.0
+  clipActions: 1.0
+  reset_dist_threshold: 0.15 # 与 Hora ScrewDriver teacher 脚本一致
+  reset_z_threshold: 0.0
+
+  # Proximity shaping threshold (independent from termination).
+  # Smaller => must get closer to earn proximity reward.
+  proximity_dist_threshold: 0.15
+
+  # Debug-only metrics for diagnosing resets/collisions.
+  log_debug_metrics: False
+  debug_print_top_hand_contacts: False
+
+  # When True (default), the thumb joints are excluded from pose-diff penalty (Hora semantics).
+  # Set False if you want to discourage "thumb-only" solutions and encourage other fingers to contribute.
+  mask_thumb_pose_diff_penalty: True
+
+
+  # Random forces applied to the object
+  forceScale: 0.0
+  randomForceProbScalar: 0.0
+  forceDecay: 0.9
+  forceDecayInterval: 0.08
+
+  hora:
+    propHistoryLen: 30
+    point_cloud_sampled_dim: 100
+
+  reward:
+    angvelClipMin: -4.0 #旋转速度惩罚的裁剪范围
+    angvelClipMax: 4.0
+    angvelPenaltyThres: [7.5, 15.0, 30000000, 60000000]
+    rotate_reward_scale: 2.5 # 旋转奖励系数，鼓励手旋转螺丝刀
+    pose_diff_penalty_scale: -0.1 # 姿态差异惩罚系数，鼓励手部姿态接近init姿态
+    torque_penalty_scale: -3.0 # 扭矩惩罚系数，防止使用过大力矩
+    # NOTE: 降低 work penalty 以减少“点戳/抽搐”型策略的动机，鼓励更长时间接触与更平滑的旋转。
+    # 如需完全对齐 Hora，可改回 -0.01 或在命令行覆盖：task.env.reward.work_penalty_scale=-0.01
+    work_penalty_scale: -0.005
+    # Optional smoothness regularization: penalize action change across steps.
+    # Set to a small negative value (e.g. -0.001 ~ -0.01) if you still see “抽搐/点戳”策略。
+    action_rate_penalty_scale: 0.0
+    rotate_penalty_scale: -0.3 # 旋转惩罚系数，防止过快旋转保证稳定
+    pc_z_dist_penalty_scale: -1.0 # 点云Z轴距离惩罚系数，鼓励手靠近螺丝刀
+    proximity_reward_scale: 2.0 # 接近奖励系数，鼓励手靠近螺丝刀
+
+  baseObjScale: 1.0
+  randomization:
+    randomizeMass: False
+    randomizeMassLower: 0.04
+    randomizeMassUpper: 0.06
+    randomizeCOM: False
+    randomizeCOMLower: -0.001
+    randomizeCOMUpper: 0.001
+    randomizeFriction: False
+    randomizeFrictionLower: 0.5
+    randomizeFrictionUpper: 8.0
+    randomizeScale: False
+    randomize_hand_scale: False
+    scaleListInit: True
+    randomizeScaleList: [0.85, 0.90, 0.95, 1.0, 1.05, 1.10, 1.15, 1.20, 1.25]
+    randomizeScaleLower: 0.80
+    randomizeScaleUpper: 1.20
+    randomizePDGains: True
+    randomizePGainLower: 2.7
+    randomizePGainUpper: 3.3
+    randomizeDGainLower: 0.009
+    randomizeDGainUpper: 0.011
+    obs_noise_e_scale: 0.01
+    obs_noise_t_scale: 0.005
+    pose_noise_scale: 0
+    action_noise_e_scale: 0.01
+    action_noise_t_scale: 0.005
+    noisy_rpy_scale: 0.1
+    noisy_pos_scale: 0.02
+
+  privInfo:
+    enableObjPos: True
+    enableObjScale: True
+    enableObjMass: True
+    enableObjCOM: True
+    enableObjFriction: True
+    enable_obj_restitution: True
+    enable_tactile: False
+    contact_input_dim: 4
+    contact_form: 'gpu_contact'
+    contact_input: 'binary'
+    contact_binarize_threshold: 0.1
+    enable_obj_orientation: True
+    enable_obj_linvel: True
+    enable_obj_angvel: True
+    enable_ft_pos: True
+    enable_ft_orientation: True
+    enable_ft_linvel: True
+    enable_ft_angvel: True
+    enable_hand_scale: True
+    enable_nut_contact: True
+    enable_nut_pos: True
+    enable_nut_dof_vel: True
+    enable_nut_dof_pos: True
+    enable_screw_joint_friction: True
+    enable_hand_position: False
+    enable_hand_orientation: False
+    enable_hand_joint_pos: False
+    enable_pgain: False
+    enable_dgain: False
+
+  object:
+    type: 'screw_driver'
+    evalObjectType: null
+    sampleProb: [1.0]
+    nut_termination_history_len: 60
+    nut_stagnation_eps: 0.003
+    screw_upper_limit: 628.3185
+    thumb_range_limit: False
+    object_tilt: False
+
+  asset:
+    handAsset: "assets/dexh13_right_description/urdf/dexh13_right_fix_path.urdf"
+
+  enableCameraSensors: False
+
+sim:
+  dt: 0.005 # 200 Hz
+  substeps: 1
+  up_axis: 'z'
+  use_gpu_pipeline: ${eq:${...pipeline},'gpu'}
+  gravity: [0.0, 0.0, -9.81]
+  physx:
+    num_threads: ${....num_threads}
+    solver_type: ${....solver_type}
+    use_gpu: ${contains:'cuda',${....sim_device}}
+    num_position_iterations: 8
+    num_velocity_iterations: 0
+    max_gpu_contact_pairs: 8388608
+    num_subscenes: ${....num_subscenes}
+    contact_offset: 0.002
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 1000.0
+    default_buffer_size_multiplier: 5.0
+    contact_collection: 1

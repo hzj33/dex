@@ -1,0 +1,7 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Compliant
+  - _self_
+
+ppo:
+  max_learning_rate: 0.00001
+  snapshot_interval_seconds: 60

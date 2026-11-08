@@ -1,0 +1,13 @@
+delta_group,condition,metric,lhs,rhs,delta_lhs_minus_rhs
+m3_latent_vs_baselines,nominal,avg_reward,latent_diffusion,padapt,-0.10495233333333331
+m3_latent_vs_baselines,nominal,avg_reward,latent_diffusion,purebc,0.17995933333333314
+m3_latent_vs_baselines,light_v2,avg_reward,latent_diffusion,padapt,-0.2904286666666669
+m3_latent_vs_baselines,light_v2,avg_reward,latent_diffusion,purebc,-0.4018626666666665
+m3_latent_vs_baselines,hard,avg_reward,latent_diffusion,padapt,-0.26574999999999993
+m3_latent_vs_baselines,hard,avg_reward,latent_diffusion,purebc,-0.27729000000000004
+m4_residual_compare,light_v2,avg_reward,residual_scale05,residual_unscaled,-0.056048666666666636
+m4_residual_compare,light_v2,avg_reward,residual_scale05,padapt,-0.3677036666666669
+m4_residual_compare,light_v2,avg_reward,residual_unscaled,padapt,-0.31165500000000024
+m4_residual_compare,hard,avg_reward,residual_scale05,residual_unscaled,0.1211296666666668
+m4_residual_compare,hard,avg_reward,residual_scale05,padapt,-0.28933966666666655
+m4_residual_compare,hard,avg_reward,residual_unscaled,padapt,-0.41046933333333335

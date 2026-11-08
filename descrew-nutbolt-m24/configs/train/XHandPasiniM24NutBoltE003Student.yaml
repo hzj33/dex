@@ -1,0 +1,12 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Compliant
+  - _self_
+
+algo: ProprioAdapt
+ppo:
+  output_name: XHandPasiniM24NutBoltE003_student
+  proprio_adapt: True
+  proprio_dim: 32
+  proprio_len: 30
+  student_trainable_param_patterns: [adapt_tconv]
+  teacher_point_tanh: True

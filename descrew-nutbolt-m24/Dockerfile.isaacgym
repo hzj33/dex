@@ -1,0 +1,48 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.8 \
+    python3.8-dev \
+    python3.8-venv \
+    python3-pip \
+    build-essential \
+    git \
+    curl \
+    wget \
+    ca-certificates \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libx11-6 \
+    libxrandr2 \
+    libxi6 \
+    libxxf86vm1 \
+    libgl1 \
+    libegl1 \
+    libvulkan1 \
+    vulkan-tools \
+    mesa-utils \
+    ffmpeg \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.8 -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+
+RUN mkdir -p /workspace/dexscrew-repro /opt/isaacgym
+WORKDIR /workspace/dexscrew-repro
+
+COPY requirements.txt /tmp/requirements.txt
+
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r /tmp/requirements.txt
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+ENV PYTHONUNBUFFERED=1
+ENV ISAACGYM_PATH=/opt/isaacgym
+
+CMD ["/bin/bash"]

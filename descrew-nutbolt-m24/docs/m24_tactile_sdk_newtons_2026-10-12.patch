@@ -1,0 +1,115 @@
+diff --git a/DexHandSDK-debug/visualize_right_tactile.py b/DexHandSDK-debug/visualize_right_tactile.py
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -34,4 +34 @@
+-RAW_TO_NEWTON = 0.1  # Existing SDK conversion; retained for acquisition compatibility.
+-# User-specified display calibration: sensor reading 0..1 corresponds to 0..10 N.
+-# Applied only in the viewer; raw SDK frames and control are unchanged.
+-SENSOR_TO_NEWTON = 10.0
++RAW_TO_NEWTON = 0.1  # SDK unit: 0.1 N per raw integer; convert exactly once.
+@@ -41,4 +38,5 @@
+-DEFAULT_FORCE_MAX_N = 10.0
+-DEFAULT_NOISE_FLOOR_N = 8.0
+-DEFAULT_ARROW_MIN_N = 0.02
+-DEFAULT_ARROW_SCALE_N = 1.0
++# Express the previous display thresholds in SDK-defined newtons.
++DEFAULT_FORCE_MAX_N = 1.0
++DEFAULT_NOISE_FLOOR_N = 0.8
++DEFAULT_ARROW_MIN_N = 0.002
++DEFAULT_ARROW_SCALE_N = 0.1
+@@ -57 +55 @@
+-    parser.add_argument('--force-max-n', type=float, default=DEFAULT_FORCE_MAX_N, help='颜色量程上限，默认10 N')
++    parser.add_argument('--force-max-n', type=float, default=DEFAULT_FORCE_MAX_N, help=f'颜色量程上限，默认{DEFAULT_FORCE_MAX_N:g} N')
+@@ -59,3 +57,3 @@
+-    parser.add_argument('--noise-floor-n', type=float, default=DEFAULT_NOISE_FLOOR_N, help='总力小读数过滤，默认8 N')
+-    parser.add_argument('--arrow-min-n', type=float, default=DEFAULT_ARROW_MIN_N, help='切向箭头门槛，默认0.02 N')
+-    parser.add_argument('--arrow-scale-n', type=float, default=DEFAULT_ARROW_SCALE_N, help='箭长独立满量程，默认1 N')
++    parser.add_argument('--noise-floor-n', type=float, default=DEFAULT_NOISE_FLOOR_N, help=f'总力小读数过滤，默认{DEFAULT_NOISE_FLOOR_N:g} N')
++    parser.add_argument('--arrow-min-n', type=float, default=DEFAULT_ARROW_MIN_N, help=f'切向箭头门槛，默认{DEFAULT_ARROW_MIN_N:g} N')
++    parser.add_argument('--arrow-scale-n', type=float, default=DEFAULT_ARROW_SCALE_N, help=f'箭长独立满量程，默认{DEFAULT_ARROW_SCALE_N:g} N')
+@@ -347 +345 @@
+-def select_arrows(centers, xy, force_max, minimum=0.02, limit=72, all_points=False):
++def select_arrows(centers, xy, force_max, minimum=DEFAULT_ARROW_MIN_N, limit=72, all_points=False):
+@@ -375,2 +373,3 @@
+-    def __init__(self, force_max=10.0, hz=10.0, interactive=True, *,
+-                 layout='fingertips', noise_floor=DEFAULT_NOISE_FLOOR_N, arrow_min=0.02, arrow_scale=1.0):
++    def __init__(self, force_max=DEFAULT_FORCE_MAX_N, hz=10.0, interactive=True, *,
++                 layout='fingertips', noise_floor=DEFAULT_NOISE_FLOOR_N,
++                 arrow_min=DEFAULT_ARROW_MIN_N, arrow_scale=DEFAULT_ARROW_SCALE_N):
+@@ -549 +548 @@
+-            forces = sensor_forces * SENSOR_TO_NEWTON
++            forces = sensor_forces
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+@@ -21 +21 @@
+-        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-10}"
++        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-1}"
+@@ -23,3 +23,3 @@
+-        --noise-floor-n "${DEXH13_TACTILE_NOISE_N:-8}"
+-        --arrow-min-n "${DEXH13_TACTILE_ARROW_MIN_N:-0.02}"
+-        --arrow-scale-n "${DEXH13_TACTILE_ARROW_SCALE_N:-1}" --)
++        --noise-floor-n "${DEXH13_TACTILE_NOISE_N:-0.8}"
++        --arrow-min-n "${DEXH13_TACTILE_ARROW_MIN_N:-0.002}"
++        --arrow-scale-n "${DEXH13_TACTILE_ARROW_SCALE_N:-0.1}" --)
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -19 +19 @@
+-## 三指触觉显示（2026-10-10更新）
++## 三指触觉显示（2026-10-12：按 SDK 单位显示牛顿）
+@@ -21 +21 @@
+-运行原入口加`--show-tactile`即可，默认并排显示拇指S11、食指S3、中指S6的三个指尖，各10列×12行。窗口可切回完整四指布局。默认采用参考图风格：白底、细浅灰蓝网格、浅蓝到深蓝总力渐变、黄色切向箭头；深色描边确保箭头在10 N顶色上仍可见。分量模式继续使用有正负含义的蓝白红配色。
++运行原入口加`--show-tactile`即可，默认并排显示拇指S11、食指S3、中指S6的三个指尖，各10列×12行。窗口可切回完整四指布局。默认采用参考图风格：白底、细浅灰蓝网格、浅蓝到深蓝总力渐变、黄色切向箭头；深色描边确保箭头在顶色上仍可见。分量模式继续使用有正负含义的蓝白红配色。
+@@ -23 +23 @@
+-按用户明确的换算关系，现有采集链路换算后的传感器值0–1对应0–10 N：显示进程将该值乘10，原SDK帧、策略和触觉采集线程不改变。点击格子同时显示采集值、换算后的Fx/Fy/Fz、|F|、|Fxy|及过滤状态。此显示换算来自用户说明，不是本次新增的独立硬件标定。
++按 SDK 2.1.1 接口定义，原始 x/y/z 整数的单位为 0.1 N；UI 仅执行一次 raw×0.1，移除之前额外的×10。原始值10现在显示为1 N，Fx/Fy/Fz、|F|、|Fxy|、颜色及箭头均使用这个单位。点击格子同时显示按SDK单位换算的采集值及过滤状态。SDK 帧、策略和采集线程保持；这不是额外硬件标定，也不规定传感器真实量程。
+@@ -25 +25 @@
+-颜色默认0–10 N，超过上限仅颜色顶满；分量模式为±10 N。黄色描边箭头仅表示SDK局部Fx/Fy，不表示Fz或已验证的世界滑动方向。箭头量程独立为1 N、触发门槛0.02 N，颜色量程/Fz变化不改变有效箭头；纯法向无切向方向时不伪造箭头。三指格式显示所有符合条件的点，不共用72个名额，箭长不超过单格；旧完整布局保留稀疏箭头。
++颜色默认0–1 N，超过上限仅颜色顶满；分量模式为±1 N。黄色描边箭头仅表示SDK局部Fx/Fy，不表示Fz或已验证的世界滑动方向。箭头量程独立为0.1 N、触发门槛0.002 N，颜色量程/Fz变化不改变有效箭头；纯法向无切向方向时不伪造箭头。三指格式显示所有符合条件的点，不共用72个名额，箭长不超过单格；旧完整布局保留稀疏箭头。
+@@ -27 +27 @@
+-小读数只做显示过滤，不校零：总力≤8 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。8 N是用户指定的可调显示阈值，不是已测食指噪声上限。窗口提供颜色量程、噪声阈值、箭头门槛和箭长量程输入框。
++小读数只做显示过滤，不校零：总力≤0.8 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。0.8 N等价于旧十倍显示的8 N阈值，不是已测食指噪声上限。颜色/噪声/箭头默认数值一并除以10，保持相同SDK输入下的颜色和过滤效果。窗口可修改四项设置；将噪声阈值设为0可显示小读数，原张开姿态屏蔽规则仍生效。
+@@ -29 +29 @@
+-启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=10、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=8、DEXH13_TACTILE_ARROW_MIN_N=0.02、DEXH13_TACTILE_ARROW_SCALE_N=1。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE；用户在实现期间自行从0.02调到0.04，最新值保留。
++启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=1、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=0.8、DEXH13_TACTILE_ARROW_MIN_N=0.002、DEXH13_TACTILE_ARROW_SCALE_N=0.1。这些变量现在均以SDK定义的牛顿为单位；显式已有环境变量值继续覆盖默认值，不自动缩放。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE，当前0.04保留。
+@@ -41 +41 @@
+-窗口“噪声阈值/N”按总力sqrt(Fx²+Fy²+Fz²)过滤：≤阈值显示0并隐藏箭头，超过仍显示；颜色上限不参与过滤。输入后回车或点击别处生效，状态行显示实际生效阈值及原始总力最大值；0值现在纯白。固定启动值：DEXH13_TACTILE_NOISE_N=10 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。10 N过滤不是整个0–10色条的清空指令，原始总力可超过10 N。
++窗口“噪声阈值/N”按总力sqrt(Fx²+Fy²+Fz²)过滤：≤阈值显示0并隐藏箭头，超过仍显示；颜色上限不参与过滤。输入后回车或点击别处生效，状态行显示实际生效阈值及原始总力最大值；0值现在纯白。固定启动值：DEXH13_TACTILE_NOISE_N=1 bash outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh --show-tactile。1 N过滤不是整个0–1色条的清空指令，原始总力可超过1 N。
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "221406414f06ca5f7a7c635b1308eaab914f0d2d414d96387cde8ada3da4b98e",
++    "README.md": "2320c28da84ecbbb7636be31322c4bfe9761b4e1ff1634e0cfb7c1eef4bc2828",
+@@ -52 +52 @@
+-    "run_deploy.sh": "547586b5836f96d16234dc660ce589a59f024b7fb12895050204151b4ef56473",
++    "run_deploy.sh": "755d15cc46a5f0999b29aabaaa922517841b6d16f0060dfee076984ea9b148ba",
+@@ -73 +73 @@
+-    "viewer_sha256": "00643e2844d12f774a5a889efc96d14505d9f65726969ab0893f93d197ded34a",
++    "viewer_sha256": "9e917683529b4605dec394664bd101dcabf765de53a367bb0aee63e138dce238",
+@@ -76 +76 @@
+-    "force_max_default_N": 10,
++    "force_max_default_N": 1,
+@@ -82 +82 @@
+-    "noise_floor_default_N": 8,
++    "noise_floor_default_N": 0.8,
+@@ -84 +84 @@
+-    "arrow_min_default_N": 0.02,
++    "arrow_min_default_N": 0.002,
+@@ -86 +86 @@
+-    "arrow_scale_default_N": 1,
++    "arrow_scale_default_N": 0.1,
+@@ -88,5 +88 @@
+-    "sensor_value_to_newton": 10,
+-    "user_reported_sensor_range": [
+-      0,
+-      1
+-    ],
++    "sensor_value_to_newton": 1,
+@@ -123 +119,4 @@
+-    }
++    },
++    "raw_sdk_unit_N": 0.1,
++    "conversion_source": "SDK 2.1.1 dexh13_control.h: raw XYZ integers in 0.1 N units",
++    "display_units_updated_at": "2026-10-12"

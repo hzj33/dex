@@ -1,0 +1,14 @@
+defaults:
+  - XHandPasiniM24NutBoltE002Cycle
+  - _self_
+
+env:
+  e002_demo_reset:
+    enable: True
+    phase: 3
+    source: outputs/cloud_pipeline_m24_e002_regraspcurriculum_20260911/actual_return_seed.json
+    source_sha256: bebca66aff74c2ab546cf58851c6f422e6f2169ed52dd5d2aaf0eda4b142cf59
+    seed_steps: [30]
+    fraction: 0.5
+    release_only: False
+    return_only: False

@@ -1,0 +1,324 @@
+diff --git a/DexHandSDK-debug/visualize_m24_tactile.py b/DexHandSDK-debug/visualize_m24_tactile.py
+new file mode 100644
+--- /dev/null
++++ b/DexHandSDK-debug/visualize_m24_tactile.py
+@@ -0,0 +1,258 @@
++#!/usr/bin/env python3
++"""Run the original M24 deployment with the existing right tactile table.
++
++Normally selected by run_deploy.sh --show-tactile. No deployment source or
++policy tensor is rewritten. The entry module gets a private import facade
++which adapts its legacy controller after loading; Python's global import
++machinery is never patched. All motor operations remain in the original code.
++
++Example:
++  python visualize_m24_tactile.py --deploy-script /path/to/deploy.py -- \
++      --legacy-script /path/to/legacy.py --jit-policy /path/to/student.pt \
++      --hand-port /dev/ttyUSB_right --disable-rm-keyboard
++
++--dry-run after the separator uses the original fake controller and no GUI.
++--demo / --snapshot PATH reuse the existing hardware-free table demonstration.
++"""
++
++from __future__ import annotations
++
++import argparse
++import importlib.util
++import math
++from pathlib import Path
++import signal
++import sys
++import threading
++import time
++from types import SimpleNamespace
++
++import visualize_right_tactile as tactile
++
++
++DEFAULT_BUNDLE = Path(
++    "/home/vision/dexscrew-repro-nutbolt/outputs/local_m24_deployment/"
++    "e003_return_progress_recovery_20261008"
++)
++
++
++class PolicyLockedControl(tactile.LockedControl):
++    """Keep the whole feedback/inference/send interval ahead of telemetry."""
++
++    def __init__(self, control, session):
++        super().__init__(control, session)
++        # Recheck priority after acquiring the SDK lock. The inherited reader
++        # acquires it again, so use a reentrant lock for this narrow wrapper.
++        self.lock = threading.RLock()
++        self.policy_active = threading.Event()
++
++    def read_detail(self):
++        if self.policy_active.is_set() or not self.lock.acquire(blocking=False):
++            return None
++        try:
++            if self.policy_active.is_set():
++                return None
++            return super().read_detail()
++        finally:
++            self.lock.release()
++
++
++class DeploymentTactileSession(tactile.TactileSession):
++    def start_viewer(self):
++        try:
++            super().start_viewer()
++        except RuntimeError:
++            # A user closing an initialized window is not a policy failure.
++            # A GUI that never initialized still fails before hardware opens.
++            if not self.ready.is_set():
++                raise
++            print("[M24 Tactile] 触觉窗口已关闭；旋拧控制继续。", flush=True)
++
++    def _read(self, control):
++        sequence = 0
++        while not self.stop.is_set():
++            if not self.process.is_alive():
++                self.stop.set()
++                break
++            start = time.monotonic()
++            try:
++                sample = control.read_detail()
++                if sample is not None:
++                    raw, captured, duration_ms = sample
++                    sequence += 1
++                    tactile.publish_latest(self.frames, {
++                        "raw": raw, "sequence": sequence, "captured": captured,
++                        "duration_ms": duration_ms,
++                    })
++            except Exception as exc:
++                error = f"触觉读取停止：{exc}；原旋拧控制继续"
++                print(f"\n[M24 Tactile] {error}", file=sys.stderr, flush=True)
++                for _ in range(20):
++                    if self.stop.is_set() or tactile.publish_latest(self.frames, {"error": error}):
++                        break
++                    self.stop.wait(0.01)
++                return
++            # Missed control-busy cycles are skipped, never accumulated.
++            self.stop.wait(max(0.0, 1.0 / self.hz - (time.monotonic() - start)))
++
++
++def adapt_legacy(legacy, session):
++    """Install a narrow controller adapter; leave policy and fake device alone."""
++    original_controller = legacy.RealDexH13Controller
++    original_run = legacy.run
++    original_stop = legacy.stop_after_interrupt_or_error
++
++    class TactileController(original_controller):
++        def __init__(self, *args, **kwargs):
++            super().__init__(*args, **kwargs)
++            self.control = PolicyLockedControl(self.control, session)
++
++        def send_initial_target(self, target):
++            result = super().send_initial_target(target)
++            # Exactly the original initial pose, with no extra motion command.
++            session.start_reader(self.control)
++            return result
++
++        def read_joint_pos(self):
++            self.control.policy_active.set()
++            try:
++                return super().read_joint_pos()
++            except BaseException:
++                self.control.policy_active.clear()
++                raise
++
++        def send_policy_target(self, target):
++            try:
++                return super().send_policy_target(target)
++            finally:
++                self.control.policy_active.clear()
++
++        def close(self):
++            session.stop_reader()
++            self.control.policy_active.clear()
++            return super().close()
++
++    def stop_with_tactile(controller):
++        # The entry's RETURN_TO_ZERO_ON_STOP wrapper still decides whether this
++        # original stop routine is called. Preserve its wait/zero semantics.
++        session.stop_reader()
++        return original_stop(controller)
++
++    def run_with_tactile(args):
++        if args.dry_run:
++            print("[M24 Tactile] Dry run: 原假控制器；不导入真实 SDK，不打开触觉窗口。", flush=True)
++            return original_run(args)
++        session.start_viewer()
++        return original_run(args)
++
++    legacy.RealDexH13Controller = TactileController
++    legacy.stop_after_interrupt_or_error = stop_with_tactile
++    legacy.run = run_with_tactile
++
++
++class LegacyLoader:
++    """Delegate the actual source load, then adapt this particular module."""
++
++    def __init__(self, loader, session):
++        self.loader = loader
++        self.session = session
++
++    def create_module(self, spec):
++        return self.loader.create_module(spec)
++
++    def exec_module(self, module):
++        self.loader.exec_module(module)
++        adapt_legacy(module, self.session)
++
++    def __getattr__(self, name):
++        return getattr(self.loader, name)
++
++
++def run_deployment(deploy_script, deploy_argv, hz, force_max):
++    spec = importlib.util.spec_from_file_location("m24_tactile_deployment", deploy_script)
++    if spec is None or spec.loader is None:
++        raise ValueError(f"无法加载旋拧部署入口：{deploy_script}")
++    entry = importlib.util.module_from_spec(spec)
++    # Let the original entry preload libtiff BEFORE NumPy, Torch or pxdex.
++    spec.loader.exec_module(entry)
++    if not callable(getattr(entry, "main", None)):
++        raise ValueError("旋拧部署入口缺少 main()")
++
++    session = DeploymentTactileSession(hz, force_max)
++    original_importlib = entry.importlib
++    original_argv = sys.argv
++    original_path = sys.path[:]
++    original_term = signal.getsignal(signal.SIGTERM)
++    terminated = False
++
++    def load_spec(name, location, *args, **kwargs):
++        result = importlib.util.spec_from_file_location(name, location, *args, **kwargs)
++        if name == "m24_legacy" and result is not None and result.loader is not None:
++            result.loader = LegacyLoader(result.loader, session)
++        return result
++
++    def terminate(_signum, _frame):
++        nonlocal terminated
++        terminated = True
++        # Unwind through the original deployment's KeyboardInterrupt handler.
++        # Ignore repeated TERM so cleanup can finish an in-flight native read.
++        signal.signal(signal.SIGTERM, signal.SIG_IGN)
++        raise KeyboardInterrupt
++
++    entry.importlib = SimpleNamespace(util=SimpleNamespace(
++        spec_from_file_location=load_spec,
++        module_from_spec=importlib.util.module_from_spec,
++    ))
++    sys.argv = [str(deploy_script), *deploy_argv]
++    sys.path.insert(0, str(deploy_script.parent))
++    signal.signal(signal.SIGTERM, terminate)
++    try:
++        try:
++            result = entry.main()
++        except KeyboardInterrupt:
++            # Startup interrupts occur before the original controller owns a
++            # device; its run() handles interrupts once control has started.
++            result = 130
++        return 143 if terminated and result == 130 else result
++    finally:
++        try:
++            session.close()
++        finally:
++            entry.importlib = original_importlib
++            sys.argv = original_argv
++            sys.path[:] = original_path
++            signal.signal(signal.SIGTERM, original_term)
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("--deploy-script", type=Path, default=DEFAULT_BUNDLE / "deploy_m24_e003_student.py")
++    parser.add_argument("--hz", type=float, default=10.0, help="触觉目标频率，默认 10 Hz；策略仍配置为 20 Hz")
++    parser.add_argument("--force-max-n", type=float, default=1.0, help="初始显示量程，默认 1 N")
++    parser.add_argument("--demo", action="store_true", help="无硬件演示现有触觉窗口")
++    parser.add_argument("--snapshot", type=Path, help="保存无硬件演示 PNG")
++    parser.add_argument("deploy_args", nargs=argparse.REMAINDER, help="-- 后的所有参数原样转交部署入口")
++    args = parser.parse_args(argv)
++    for name, value in (("--hz", args.hz), ("--force-max-n", args.force_max_n)):
++        if not math.isfinite(value) or value <= 0:
++            parser.error(f"{name} 必须为有限正数")
++    deploy_argv = args.deploy_args[1:] if args.deploy_args[:1] == ["--"] else args.deploy_args
++    if args.demo or args.snapshot:
++        if deploy_argv:
++            parser.error("演示/截图模式不能与部署参数混用")
++        demo_args = ["--hz", str(args.hz), "--force-max-n", str(args.force_max_n)]
++        demo_args += ["--snapshot", str(args.snapshot)] if args.snapshot else ["--demo"]
++        return tactile.main(demo_args)
++    try:
++        tactile.validate_mapping()
++        print(f"[M24 Tactile] 触觉 {args.hz:g} Hz，量程 {args.force_max_n:g} N；控制优先。", flush=True)
++        return run_deployment(args.deploy_script.resolve(), deploy_argv, args.hz, args.force_max_n)
++    except KeyboardInterrupt:
++        return 130
++    except Exception as exc:
++        print(f"[M24 Tactile] {exc}", file=sys.stderr, flush=True)
++        return 2
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+@@ -1,5 +1,24 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ bundle_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++show_tactile=0
++deploy_args=()
++for arg in "$@"; do
++    if [[ "$arg" == --show-tactile ]]; then
++        show_tactile=1
++    else
++        deploy_args+=("$arg")
++    fi
++done
++entry=("$bundle_dir/deploy_m24_e003_student.py")
++if (( show_tactile )); then
++    tactile_script="${DEXH13_M24_TACTILE_SCRIPT:-/home/vision/DexHandSDK-debug/visualize_m24_tactile.py}"
++    if [[ ! -f "$tactile_script" ]]; then
++        echo "未找到旋拧触觉脚本：$tactile_script" >&2
++        exit 1
++    fi
++    entry=("$tactile_script" --deploy-script "$bundle_dir/deploy_m24_e003_student.py"
++        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-1}" --)
++fi
+ echo "回位进度修正持续部署：Ctrl+C结束。"
+-exec "${M24_PYTHON:-/home/vision/software/miniconda3/envs/sim2real/bin/python}" "$bundle_dir/deploy_m24_e003_student.py" --legacy-script "$bundle_dir/m24_legacy_deployment.py" --jit-policy "$bundle_dir/student.pt" --hand-port /dev/ttyUSB_right --disable-rm-keyboard --max-policy-steps 0 "$@"
++exec "${M24_PYTHON:-/home/vision/software/miniconda3/envs/sim2real/bin/python}" "${entry[@]}" --legacy-script "$bundle_dir/m24_legacy_deployment.py" --jit-policy "$bundle_dir/student.pt" --hand-port /dev/ttyUSB_right --disable-rm-keyboard --max-policy-steps 0 "${deploy_args[@]}"
+diff --git a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -49,7 +49,7 @@
+     "weight_preservation.json": "1b9a570082300ad5a9bb943af3ef60dca062c51ff86c7d60081e105b927e9f05",
+     "force_evaluation.json": "af4b901804ce32730a32c6a00566484bd4aa096595d08aa67bebeb19d955fc50",
+     "launcher_verification.json": "2caeab772bc645fbe57a468a76ac4bbc02f8c0e9dd8938cdde6c0546baae2738",
+-    "run_deploy.sh": "5e774075f07509c5de029f78bbea742c5d7d5fb449ed803b35c8f6c476817222",
++    "run_deploy.sh": "ec06a685b322a84f8b7e34be69cbcc5e5f8524c18eec582754e937c1c3b4a554",
+     "software_verification.json": "21a5b32343bc555c19fadc14cf6efa58e775822ee22b50622bf2eb3e908b849e",
+     "run_recovery_trial.sh": "6c5b4d81a2e399316b09ab2009e73694e5cbd418d50a0106c948272b02ea43e4"
+   },
+@@ -58,5 +58,18 @@
+   "peak_whole_finger_normal_N": [
+     52.07605253690554,
+     22.069879137452286
+-  ]
++  ],
++  "tactile_visualization": {
++    "opt_in_flag": "--show-tactile",
++    "adapter_path": "/home/vision/DexHandSDK-debug/visualize_m24_tactile.py",
++    "adapter_sha256": "0d51cda2b257c6507a2771ef050efb5c93bf7f38fcbdb982f23cc4948aafd0fa",
++    "viewer_path": "/home/vision/DexHandSDK-debug/visualize_right_tactile.py",
++    "viewer_sha256": "d2d1072964663c260b2702cf1c4cc23501c72008c8439536d29f7621f8e59e15",
++    "target_hz_default": 10,
++    "hz_environment": "DEXH13_TACTILE_HZ",
++    "force_max_default_N": 1,
++    "force_max_environment": "DEXH13_TACTILE_MAX_N",
++    "policy_hz_unchanged": 20,
++    "hardware_timing_validated": false
++  }
+ }

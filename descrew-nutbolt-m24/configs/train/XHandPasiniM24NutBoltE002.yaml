@@ -1,0 +1,7 @@
+defaults:
+  - XHandPasiniM24NutBolt
+  - _self_
+
+# E002 starts from scratch; the actor receives the opt-in 101-D command tail.
+ppo:
+  output_name: 'XHandPasiniM24NutBoltE002'

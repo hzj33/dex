@@ -1,0 +1,50 @@
+{
+  "milestone": "e003_low_force_cycles",
+  "status": "success",
+  "decision_date": "2026-09-14",
+  "decision_authority": "User explicitly accepted the current result and granted sim2real eligibility.",
+  "sim2real_eligible": true,
+  "eligibility_scope": "Eligible to enter real-hand transfer validation; real-hand execution and safety are not yet empirically validated.",
+  "real_hand_validated": false,
+  "hardware_safety_verified": false,
+  "task": "XHandPasiniM24NutBoltE003Compliant",
+  "checkpoint": "outputs/cloud_pipeline_m24_e003_compliant_validate_20260911/selected_teacher/e003_compliant_frozen_teacher.pth",
+  "checkpoint_sha256": "d42e98a260be396689e0b0bd9dae421021e63cd169da1ecb50efbb710e2a5cb0",
+  "video": "outputs/cloud_pipeline_m24_e003_compliant_validate_20260911/native_s43/e003_low_force_cycles.mp4",
+  "video_sha256": "a5fb9e28e4a144f0341860d753b597c3dba24b183b319d3b6e6703f27738dd29",
+  "controller": {
+    "pgain": 2.4,
+    "dgain": 0.01
+  },
+  "simulation_evidence": {
+    "nominal_five_cycles": "128/128",
+    "perturbed_five_cycles": "468/512",
+    "native_frames": 197,
+    "native_fps": 20,
+    "native_duration_s": 9.85,
+    "native_rotation_deg": 144.7107
+  },
+  "acceptance_artifact": "outputs/cloud_pipeline_m24_e003_compliant_validate_20260911/acceptance.json",
+  "remaining_issues": [
+    "Actual motor torque/current/force limit calibration and deployable phase-state sensing.",
+    "Per-finger 5N objective not yet demonstrated; current force metric is normal resultant.",
+    "No full contact-wrench balance objective or zero-slip verification.",
+    "42 return timeouts and 2 workspace failures among 512 perturbed starts."
+  ],
+  "recorded_at_utc": "2026-09-14T02:30:20.160871+00:00",
+  "student_policy_available": true,
+  "student_status": "Formal training, evaluation and export completed. Selected LAST: nominal128/128, perturbed443/512; index normal peak38.6106N versus teacher24.2553N. Low-force preservation not accepted; hardware adapter pending.",
+  "scope_amendment_20260914": {
+    "excluded_by_user": [
+      "Nut axial feed modeling or compensation as a sim2real requirement."
+    ],
+    "required_followup_targets": [
+      "Per-finger nut normal force peak <=5N with successful repeated cycles.",
+      "Reduce unwanted resultant force and tilt moments; coordinate loading/unloading while preserving useful axial torque."
+    ],
+    "deployment_approach": "Reuse original M24 sim2real workflow; inspect actual entrypoint and incremental compatibility before requesting new hardware information."
+  },
+  "student_training_pipeline": "outputs/cloud_pipeline_m24_e003_student_20260914/status.json",
+  "student_final_validation_passed": false,
+  "student_checkpoint": "outputs/cloud_pipeline_m24_e003_student_20260914/selected_student/student_candidate.ckpt"
+}

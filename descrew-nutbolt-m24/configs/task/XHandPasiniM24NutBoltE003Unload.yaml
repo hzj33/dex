@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE003Compliant
+  - _self_
+
+env:
+  e002_cycle:
+    unload_balance_scale: 0.1
+    unload_force_reference: 5.0

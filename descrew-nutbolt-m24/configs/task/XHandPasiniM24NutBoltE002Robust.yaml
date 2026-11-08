@@ -1,0 +1,8 @@
+defaults:
+  - XHandPasiniM24NutBoltE002Cycle
+  - _self_
+
+env:
+  # Local initial-state curriculum; amplitudes chosen by physical diagnostics.
+  e002_init_joint_noise_rad: 0.017453292519943295
+  e002_nominal_reset_fraction: 0.5

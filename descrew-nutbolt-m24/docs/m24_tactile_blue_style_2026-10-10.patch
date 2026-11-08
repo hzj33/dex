@@ -1,0 +1,98 @@
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -335,2 +335,3 @@
+-        ((13, 18, 73), (74, 16, 122), (182, 43, 99),
+-         (244, 117, 43), (248, 235, 65))
++        ((247, 251, 255), (222, 235, 247), (198, 219, 239),
++         (158, 202, 225), (107, 174, 214), (66, 146, 198),
++         (33, 113, 181), (8, 81, 156), (8, 48, 107))
+@@ -338 +339 @@
+-    positions = np.linspace(0, 1, 5) if signed else (0, 0.22, 0.48, 0.74, 1)
++    positions = np.linspace(0, 1, len(colors))
+@@ -389 +390 @@
+-        self.fig = self.plt.figure(figsize=(12, 9), facecolor='#f9fbfe')
++        self.fig = self.plt.figure(figsize=(12, 7), facecolor='#ffffff')
+@@ -397 +398 @@
+-        radio_ax = self.fig.add_axes((0.10, 0.025, 0.17, 0.105), facecolor='#f9fbfe')
++        radio_ax = self.fig.add_axes((0.10, 0.025, 0.17, 0.105), facecolor='#ffffff')
+@@ -400 +401 @@
+-        layout_ax = self.fig.add_axes((0.31, 0.025, 0.15, 0.105), facecolor='#f9fbfe')
++        layout_ax = self.fig.add_axes((0.31, 0.025, 0.15, 0.105), facecolor='#ffffff')
+@@ -421 +422,2 @@
+-        self.ax.set_facecolor('#edf2f7')
++        self.fig.set_size_inches(12, 7 if self.layout == 'fingertips' else 9, forward=True)
++        self.ax.set_facecolor('#ffffff')
+@@ -429 +431 @@
+-                self.ax.add_patch(Rectangle((column * 12, 0), 10, 12, fill=False, edgecolor='#becbd9'))
++                self.ax.add_patch(Rectangle((column * 12, 0), 10, 12, fill=False, edgecolor='#cbd6df'))
+@@ -439 +441 @@
+-                                           fill=False, edgecolor='#becbd9'))
++                                           fill=False, edgecolor='#cbd6df'))
+@@ -452,2 +454,2 @@
+-        cells = [Rectangle((x - .46, y - .46), .92, .92, edgecolor='#d4dde5') for x, y in points]
+-        self.cells = PatchCollection(cells, linewidths=.4, cmap=self.palettes[0], norm=Normalize(0, self.force_max))
++        cells = [Rectangle((x - .49, y - .49), .98, .98, edgecolor='#e3eaf0') for x, y in points]
++        self.cells = PatchCollection(cells, edgecolors='#e3eaf0', linewidths=.35, cmap=self.palettes[0], norm=Normalize(0, self.force_max))
+@@ -460 +462 @@
+-        self.selection = Rectangle((0, 0), .98, .98, fill=False, edgecolor='#ffffff', linewidth=2, zorder=6)
++        self.selection = Rectangle((0, 0), .98, .98, fill=False, edgecolor='#263342', linewidth=2, zorder=6)
+@@ -581 +583 @@
+-        hit = self.np.flatnonzero((delta[:, 0] <= .46) & (delta[:, 1] <= .46))
++        hit = self.np.flatnonzero((delta[:, 0] <= .49) & (delta[:, 1] <= .49))
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -21 +21 @@
+-运行原入口加`--show-tactile`即可，默认并排显示拇指S11、食指S3、中指S6的三个指尖，各10列×12行。窗口可切回完整四指布局。
++运行原入口加`--show-tactile`即可，默认并排显示拇指S11、食指S3、中指S6的三个指尖，各10列×12行。窗口可切回完整四指布局。默认采用参考图风格：白底、细浅灰蓝网格、浅蓝到深蓝总力渐变、黄色切向箭头；深色描边确保箭头在10 N顶色上仍可见。分量模式继续使用有正负含义的蓝白红配色。
+@@ -39,0 +40,2 @@
++
++外观更新验证与模拟截图：outputs/local_pipeline_m24_tactile_blue_style_20261010。改前改后两种布局、四种模式的原始/显示力值及箭头逐值一致，策略、校零、动作步幅与停止流程未改；无真机操作。
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "62a2f217e5f0f987efc1a29e3b667048d193e393537abb01762d409142a1bf2b",
++    "README.md": "e5a83bd71a00449b4b1c405b3909d3c56e4bc265c58e2482f38612579438f5cf",
+@@ -57 +57,2 @@
+-    "tactile_calibration_verification.json": "bbf729ded30368ced1b52b130ab0162cac4d264ce8af4fd3bbcc47da74866f6a"
++    "tactile_calibration_verification.json": "bbf729ded30368ced1b52b130ab0162cac4d264ce8af4fd3bbcc47da74866f6a",
++    "tactile_blue_style_verification.json": "2aadfa97bb52ae81e4e9bcc84f27ca08e4fc7084b22aa849885ff5f75b8e3593"
+@@ -70 +71 @@
+-    "viewer_sha256": "10db555e3fbc579c0b30d775e6a15a02e1077be4424c9da897044ccd9fa0149a",
++    "viewer_sha256": "05bc3b10a092b729dfe8e80bdb252f122ca7e660653c6ab5b16a125d87ab933c",
+@@ -93 +94,2 @@
+-    "actual_user_action_scale": 0.04
++    "actual_user_action_scale": 0.04,
++    "appearance": "white background, fine grid, light-to-dark blue magnitude, outlined yellow tangent arrows"
+--- /dev/null
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/tactile_blue_style_verification.json
+@@ -0,0 +1,30 @@
++{
++  "display": {
++    "checks": [
++      "three_tip_mapping_and_point_order",
++      "user_sensor_0_to_1_maps_to_0_to_10_newtons",
++      "fz_and_color_scale_do_not_change_360_tangent_arrows",
++      "pure_normal_has_no_fabricated_direction",
++      "noise_boundary_and_independent_tangent_threshold",
++      "click_raw_values_filter_and_overrange_detail",
++      "layout_switch_preserves_raw_data_and_signed_mode",
++      "invalid_window_settings_rejected",
++      "screenshots_both_layouts"
++    ],
++    "hardware_operated": false
++  },
++  "equivalence": {
++    "checks": [
++      "before_after_data_and_arrows_exact_for_both_layouts_all_modes",
++      "signed_palette_preserved",
++      "white_blue_palette_and_grid",
++      "model_entry_legacy_calibration_launcher_adapter_hashes_unchanged"
++    ],
++    "hardware_operated": false
++  },
++  "screenshots": [
++    "fingertips.png",
++    "full.png"
++  ],
++  "visually_checked": true
++}

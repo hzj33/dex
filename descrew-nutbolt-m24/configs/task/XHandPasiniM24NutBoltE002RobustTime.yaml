@@ -1,0 +1,12 @@
+defaults:
+  - XHandPasiniM24NutBoltE002Robust
+  - _self_
+
+env:
+  episodeLength: 2200
+  e002_cycle:
+    # Paired inference recovered24/31 drive timeouts without relaxing any
+    # physical success condition. Preserve the learned80/40/60/40 clock.
+    phase_deadlines: [160, 80, 120, 80]
+    phase_clock_scale: 0.5
+    goal_cycles: 5

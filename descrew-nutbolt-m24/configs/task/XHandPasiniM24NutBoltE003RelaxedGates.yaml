@@ -1,0 +1,13 @@
+defaults:
+  - XHandPasiniM24NutBoltE003BoundedMean
+  - _self_
+
+env:
+  episodeLength: 3000
+  e002_cycle:
+    goal_cycles: 2
+    return_sector_tolerance: 0.2617993878
+    phase_deadlines: [320, 160, 240, 160]
+    phase_clock_scale: 0.25
+    event_dwell_steps: 1
+    require_paired_drive_progress: false

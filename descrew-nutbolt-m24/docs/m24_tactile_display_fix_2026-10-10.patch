@@ -1,0 +1,524 @@
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -34 +34,4 @@
+-RAW_TO_NEWTON = 0.1
++RAW_TO_NEWTON = 0.1  # Existing SDK conversion; retained for acquisition compatibility.
++# User-specified display calibration: sensor reading 0..1 corresponds to 0..10 N.
++# Applied only in the viewer; raw SDK frames and control are unchanged.
++SENSOR_TO_NEWTON = 10.0
+@@ -37,0 +41,29 @@
++DEFAULT_FORCE_MAX_N = 10.0
++DEFAULT_NOISE_FLOOR_N = 0.2
++DEFAULT_ARROW_MIN_N = 0.02
++DEFAULT_ARROW_SCALE_N = 1.0
++
++
++def validate_display_settings(force_max, layout, noise_floor, arrow_min, arrow_scale):
++    if layout not in ('fingertips', 'full'):
++        raise ValueError('layout must be fingertips or full')
++    for name, value in (('force_max', force_max), ('noise_floor', noise_floor),
++                        ('arrow_min', arrow_min), ('arrow_scale', arrow_scale)):
++        if not math.isfinite(value) or value < 0 or (name != 'noise_floor' and value == 0):
++            raise ValueError(f'{name} 必须有限，噪声阈值非负，其他量程/门槛为正')
++
++
++def add_display_arguments(parser):
++    parser.add_argument('--force-max-n', type=float, default=DEFAULT_FORCE_MAX_N, help='颜色量程上限，默认10 N')
++    parser.add_argument('--layout', choices=('fingertips', 'full'), default='fingertips')
++    parser.add_argument('--noise-floor-n', type=float, default=DEFAULT_NOISE_FLOOR_N, help='总力小读数过滤，默认0.2 N')
++    parser.add_argument('--arrow-min-n', type=float, default=DEFAULT_ARROW_MIN_N, help='切向箭头门槛，默认0.02 N')
++    parser.add_argument('--arrow-scale-n', type=float, default=DEFAULT_ARROW_SCALE_N, help='箭长独立满量程，默认1 N')
++
++
++def display_options(args):
++    validate_display_settings(args.force_max_n, args.layout, args.noise_floor_n, args.arrow_min_n, args.arrow_scale_n)
++    return dict(layout=args.layout, noise_floor=args.noise_floor_n,
++                arrow_min=args.arrow_min_n, arrow_scale=args.arrow_scale_n)
++
++
+@@ -176 +208 @@
+-    def __init__(self, hz, force_max):
++    def __init__(self, hz, force_max, **display_settings):
+@@ -178,0 +211 @@
++        self.display_settings = display_settings
+@@ -189 +222 @@
+-            args=(self.frames, self.stop, self.ready, self.force_max, self.hz),
++            args=(self.frames, self.stop, self.ready, self.force_max, self.hz, self.display_settings),
+@@ -313 +346 @@
+-def select_arrows(centers, xy, force_max, minimum=0.02, limit=72):
++def select_arrows(centers, xy, force_max, minimum=0.02, limit=72, all_points=False):
+@@ -318 +351 @@
+-    candidates = np.flatnonzero(strengths >= minimum)
++    candidates = np.flatnonzero((strengths >= minimum) & (strengths > 0))
+@@ -322 +355,4 @@
+-    lengths = 0.25 + 1.1 * np.clip(strengths / force_max, 0, 1)
++    lengths = 0.25 + (0.6 if all_points else 1.1) * np.clip(strengths / force_max, 0, 1)
++    if all_points:
++        vectors = xy[candidates] / np.maximum(strengths[candidates, None], 1e-12)
++        return candidates, vectors * lengths[candidates, None]
+@@ -338 +374,3 @@
+-    def __init__(self, force_max=1.0, hz=10.0, interactive=True):
++    def __init__(self, force_max=10.0, hz=10.0, interactive=True, *,
++                 layout='fingertips', noise_floor=0.2, arrow_min=0.02, arrow_scale=1.0):
++        validate_display_settings(force_max, layout, noise_floor, arrow_min, arrow_scale)
+@@ -339,0 +378,39 @@
++        from matplotlib.widgets import RadioButtons, TextBox
++        self.force_max, self.hz = force_max, hz
++        self.layout, self.noise_floor = layout, noise_floor
++        self.arrow_min, self.arrow_scale = arrow_min, arrow_scale
++        self.mode = 'magnitude'
++        self.sensor_force = self.np.zeros((POINT_COUNT, 3))
++        self.force = self.sensor_force.copy()  # Display-calibrated physical values in N.
++        self.display_force = self.force.copy()
++        self.message = self.error = self.selected = self.previous_sample = None
++        self.rate = 0.0
++        self.palettes = (palette(), palette(signed=True))
++        self.fig = self.plt.figure(figsize=(12, 9), facecolor='#f9fbfe')
++        self.fig.canvas.manager.set_window_title('右手实时触觉')
++        self.ax = self.fig.add_axes((0.10, 0.26, 0.75, 0.61))
++        self._build_layout()
++        self.colorbar = self.fig.colorbar(self.cells, cax=self.fig.add_axes((0.89, 0.32, 0.022, 0.50)))
++        self.fig.text(0.10, 0.917, '黄色箭头：SDK 局部 Fx/Fy（+x →，+y ↑）；关闭窗口，原控制继续', color='#456277')
++        self.status = self.fig.text(0.10, 0.215, '等待触觉数据', color='#456277')
++        self.detail = self.fig.text(0.10, 0.170, '点击格子查看原始力值、切向力与显示过滤状态', fontsize=9)
++        radio_ax = self.fig.add_axes((0.10, 0.025, 0.17, 0.105), facecolor='#f9fbfe')
++        self.radio = RadioButtons(radio_ax, tuple(MODE_LABELS.values()), active=0)
++        self.radio.on_clicked(self._set_mode)
++        layout_ax = self.fig.add_axes((0.31, 0.025, 0.15, 0.105), facecolor='#f9fbfe')
++        self.layout_radio = RadioButtons(layout_ax, ('三指指尖', '完整四指'), active=int(layout == 'full'))
++        self.layout_radio.on_clicked(self._set_layout)
++        boxes = (('force_max', '颜色上限/N ', (0.62, 0.090, 0.10, 0.035)),
++                 ('noise_floor', '噪声阈值/N ', (0.86, 0.090, 0.10, 0.035)),
++                 ('arrow_min', '箭头门槛/N ', (0.62, 0.035, 0.10, 0.035)),
++                 ('arrow_scale', '箭长量程/N ', (0.86, 0.035, 0.10, 0.035)))
++        self.setting_boxes = {}
++        for name, label, position in boxes:
++            box = TextBox(self.fig.add_axes(position), label, initial=f'{getattr(self, name):g}')
++            box.on_submit(lambda value, key=name: self._set_number(key, value))
++            self.setting_boxes[name] = box
++        self.scale_box = self.setting_boxes['force_max']
++        self.fig.canvas.mpl_connect('button_press_event', self._click)
++        self._refresh_colors()
++
++    def _build_layout(self):
+@@ -343,5 +420,2 @@
+-        from matplotlib.widgets import RadioButtons, TextBox
+-
+-        self.force_max = force_max
+-        self.hz = hz
+-        self.mode = "magnitude"
++        self.ax.clear()
++        self.ax.set_facecolor('#edf2f7')
+@@ -349,14 +423,24 @@
+-        self.force = self.np.zeros((POINT_COUNT, 3))
+-        self.message = None
+-        self.error = None
+-        self.selected = None
+-        self.rate = 0.0
+-        self.previous_sample = None
+-        self.fig = self.plt.figure(figsize=(12, 9), facecolor="#f9fbfe")
+-        self.fig.canvas.manager.set_window_title("右手实时触觉 · 1140 点")
+-        self.ax = self.fig.add_axes((0.10, 0.23, 0.75, 0.64))
+-        self.ax.set_facecolor("#edf2f7")
+-        self.ax.set_xlim(-0.5, 46.5)
+-        self.ax.set_ylim(-0.5, 32.5)
+-        self.ax.set_aspect("equal")
+-        self.ax.set_xticks((5, 17, 29, 41), ("无名指 Ring", "中指 Middle", "食指 Index", "拇指 Thumb"))
++        if self.layout == 'fingertips':
++            sensors = [next(s for s in SENSORS if s.sensor_id == sid) for sid in (11, 3, 6)]
++            self.visible_indices = self.np.concatenate([self.np.arange(s.start, s.stop) for s in sensors])
++            for column, sensor in enumerate(sensors):
++                col, row = self.np.divmod(self.np.arange(sensor.count), sensor.rows)
++                self.centers[sensor.start:sensor.stop] = self.np.column_stack((column * 12 + col + .5, row + .5))
++                self.ax.add_patch(Rectangle((column * 12, 0), 10, 12, fill=False, edgecolor='#becbd9'))
++            self.ax.set_xlim(-.5, 34.5)
++            self.ax.set_ylim(-.5, 12.5)
++            self.ax.set_xticks((5, 17, 29), ('拇指 Thumb', '食指 Index', '中指 Middle'))
++            self.ax.set_yticks(())
++            title = '右手三指指尖 · 3 块 / 360 点'
++        else:
++            self.visible_indices = self.np.arange(POINT_COUNT)
++            for sensor in SENSORS:
++                self.ax.add_patch(Rectangle((sensor.column * 12, sensor.bottom), 10, sensor.rows,
++                                           fill=False, edgecolor='#becbd9'))
++            self.ax.text(41, 16, '无中节传感器', ha='center', va='center', color='#738399')
++            self.ax.set_xlim(-.5, 46.5)
++            self.ax.set_ylim(-.5, 32.5)
++            self.ax.set_xticks((5, 17, 29, 41), ('无名指 Ring', '中指 Middle', '食指 Index', '拇指 Thumb'))
++            self.ax.set_yticks((26, 16, 6), ('指尖\nTIP', '中节\nPIP', '近节\nMCP'))
++            title = '右手完整触觉 · 11 块 / 1140 点'
++        self.ax.set_aspect('equal')
+@@ -364,2 +448 @@
+-        self.ax.tick_params(axis="both", length=0, pad=10)
+-        self.ax.set_yticks((26, 16, 6), ("指尖\nTIP", "中节\nPIP", "近节\nMCP"))
++        self.ax.tick_params(axis='both', length=0, pad=10)
+@@ -368,10 +451,4 @@
+-        for sensor in SENSORS:
+-            self.ax.add_patch(Rectangle(
+-                (sensor.column * 12, sensor.bottom), 10, sensor.rows,
+-                fill=False, edgecolor="#becbd9", linewidth=1.0,
+-            ))
+-        self.ax.text(41, 16, "无中节传感器", ha="center", va="center", color="#738399")
+-        cells = [Rectangle((x - 0.46, y - 0.46), 0.92, 0.92) for x, y in self.centers]
+-        self.palettes = (palette(), palette(signed=True))
+-        self.cells = PatchCollection(cells, linewidths=0, cmap=self.palettes[0], norm=Normalize(0, force_max))
+-        self.cells.set_array(self.np.zeros(POINT_COUNT))
++        points = self.centers[self.visible_indices]
++        cells = [Rectangle((x - .46, y - .46), .92, .92, edgecolor='#d4dde5') for x, y in points]
++        self.cells = PatchCollection(cells, linewidths=.4, cmap=self.palettes[0], norm=Normalize(0, self.force_max))
++        self.cells.set_array(self.np.zeros(len(points)))
+@@ -379,3 +456,3 @@
+-        self.colorbar = self.fig.colorbar(self.cells, cax=self.fig.add_axes((0.89, 0.29, 0.022, 0.54)))
+-        self.colorbar.set_label("|F| / N")
+-        self.arrows = LineCollection([], colors="#18bc82", linewidths=1.4, zorder=4)
++        self.arrow_outline = LineCollection([], colors='#263342', linewidths=3.0, zorder=4)
++        self.arrows = LineCollection([], colors='#ffd447', linewidths=1.3, zorder=5)
++        self.ax.add_collection(self.arrow_outline)
+@@ -383 +460 @@
+-        self.selection = Rectangle((0, 0), 0.98, 0.98, fill=False, edgecolor="#ffffff", linewidth=2, zorder=5)
++        self.selection = Rectangle((0, 0), .98, .98, fill=False, edgecolor='#ffffff', linewidth=2, zorder=6)
+@@ -386,12 +463,12 @@
+-        self.fig.suptitle("右手实时触觉 · 11 块 / 1140 点", fontsize=18, y=0.97)
+-        self.fig.text(0.10, 0.923, "绿色箭头：SDK 局部 Fx/Fy（+x →，+y ↑）；物理方向待滑动核对", color="#456277")
+-        self.status = self.fig.text(0.10, 0.195, "等待触觉数据", color="#456277")
+-        self.detail = self.fig.text(0.10, 0.145, "点击任意单元查看点索引和力值", fontsize=10)
+-        radio_ax = self.fig.add_axes((0.10, 0.025, 0.30, 0.095), facecolor="#f9fbfe")
+-        self.radio = RadioButtons(radio_ax, tuple(MODE_LABELS.values()), active=0)
+-        self.radio.on_clicked(self._set_mode)
+-        scale_ax = self.fig.add_axes((0.57, 0.066, 0.12, 0.036))
+-        self.scale_box = TextBox(scale_ax, "量程上限 / N  ", initial=f"{force_max:g}")
+-        self.scale_box.on_submit(self._set_scale)
+-        self.fig.text(0.75, 0.076, "关闭本窗口\n遥操作继续", color="#456277", fontsize=9)
+-        self.fig.canvas.mpl_connect("button_press_event", self._click)
++        self.selected = None
++        if hasattr(self, 'colorbar'):
++            self.colorbar.update_normal(self.cells)
++        self.fig.suptitle(title, fontsize=18, y=.97)
++
++    def _set_layout(self, label):
++        self.layout = {'三指指尖': 'fingertips', '完整四指': 'full'}[label]
++        self._build_layout()
++        self.detail.set_text('点击格子查看原始力值、切向力与显示过滤状态')
++        self._refresh_colors()
++        self._refresh_arrows()
++        self.fig.canvas.draw_idle()
+@@ -401,0 +479 @@
++        self._refresh_detail()
+@@ -404 +482 @@
+-    def _set_scale(self, value):
++    def _set_number(self, name, value):
+@@ -407 +485 @@
+-            if not math.isfinite(result) or result <= 0:
++            if not math.isfinite(result) or result < 0 or (name != 'noise_floor' and result == 0):
+@@ -409,2 +487,2 @@
+-        except ValueError:
+-            self.scale_box.set_val(f"{self.force_max:g}")
++        except (ValueError, TypeError):
++            self.setting_boxes[name].set_val(f'{getattr(self, name):g}')
+@@ -412 +490 @@
+-        self.force_max = result
++        setattr(self, name, result)
+@@ -414,0 +493 @@
++        self._refresh_detail()
+@@ -415,0 +495,3 @@
++
++    def _set_scale(self, value):
++        self._set_number('force_max', value)
+@@ -419,7 +501,8 @@
+-
+-        signed = self.mode != "magnitude"
+-        values = (self.np.linalg.norm(self.force, axis=1) if not signed else
+-                  self.force[:, {"fx": 0, "fy": 1, "fz": 2}[self.mode]])
+-        target_cmap = self.palettes[int(signed)]
+-        if self.cells.cmap is not target_cmap:
+-            self.cells.set_cmap(target_cmap)
++        self.display_force = self.force.copy()
++        self.display_force[self.np.linalg.norm(self.force, axis=1) <= self.noise_floor + 1e-12] = 0
++        signed = self.mode != 'magnitude'
++        values = (self.np.linalg.norm(self.display_force, axis=1) if not signed else
++                  self.display_force[:, {'fx': 0, 'fy': 1, 'fz': 2}[self.mode]])
++        cmap = self.palettes[int(signed)]
++        if self.cells.cmap is not cmap:
++            self.cells.set_cmap(cmap)
+@@ -429,2 +512,2 @@
+-        self.cells.set_array(values)
+-        self.colorbar.set_label(f"{MODE_LABELS[self.mode]} / N")
++        self.cells.set_array(values[self.visible_indices])
++        self.colorbar.set_label(f'{MODE_LABELS[self.mode]} / N')
+@@ -433,3 +516,7 @@
+-        indices, vectors = select_arrows(self.centers, self.force[:, :2], self.force_max)
+-        start = self.centers[indices] - vectors * 0.5
+-        tip = self.centers[indices] + vectors * 0.5
++        local, vectors = select_arrows(self.centers[self.visible_indices],
++            self.display_force[self.visible_indices, :2], self.arrow_scale,
++            minimum=self.arrow_min, all_points=self.layout == 'fingertips')
++        self.arrow_indices = self.visible_indices[local]
++        self.arrow_vectors = vectors
++        start = self.centers[self.arrow_indices] - vectors * .5
++        tip = self.centers[self.arrow_indices] + vectors * .5
+@@ -439 +526 @@
+-        head = self.np.minimum(0.24, lengths * 0.35)[:, None]
++        head = self.np.minimum(.18, lengths * .35)[:, None]
+@@ -441,5 +528,4 @@
+-        left, right = base + perpendicular * head * 0.5, base - perpendicular * head * 0.5
+-        segments = self.np.concatenate((
+-            self.np.stack((start, tip), axis=1), self.np.stack((tip, left), axis=1),
+-            self.np.stack((tip, right), axis=1),
+-        ))
++        left, right = base + perpendicular * head * .5, base - perpendicular * head * .5
++        segments = self.np.concatenate((self.np.stack((start, tip), axis=1),
++            self.np.stack((tip, left), axis=1), self.np.stack((tip, right), axis=1)))
++        self.arrow_outline.set_segments(segments)
+@@ -449,2 +535,2 @@
+-        if "error" in message:
+-            self.error = str(message["error"])
++        if 'error' in message:
++            self.error = str(message['error'])
+@@ -453,4 +539,5 @@
+-            forces = force_array(message["raw"])
+-            captured = float(message["captured"])
+-            sequence = int(message["sequence"])
+-            duration = float(message["duration_ms"])
++            sensor_forces = force_array(message['raw'])
++            forces = sensor_forces * SENSOR_TO_NEWTON
++            captured = float(message['captured'])
++            sequence = int(message['sequence'])
++            duration = float(message['duration_ms'])
+@@ -458 +545 @@
+-                raise ValueError("Invalid sample timestamp or duration")
++                raise ValueError('Invalid sample timestamp or duration')
+@@ -460 +547 @@
+-            self.error = f"无效触觉帧：{exc}"
++            self.error = f'无效触觉帧：{exc}'
+@@ -466 +553 @@
+-                self.rate = instant if not self.rate else 0.2 * instant + 0.8 * self.rate
++                self.rate = instant if not self.rate else .2 * instant + .8 * self.rate
+@@ -468,3 +555,2 @@
+-        self.force = forces
+-        self.message = message
+-        self.error = None
++        self.sensor_force = sensor_forces
++        self.force, self.message, self.error = forces, message, None
+@@ -478 +564 @@
+-            text, color = self.error, "#b32424"
++            text, color = self.error, '#b32424'
+@@ -480 +566 @@
+-            text, color = "等待初始姿态设置完成和触觉数据…", "#456277"
++            text, color = '等待初始姿态设置完成和触觉数据…', '#456277'
+@@ -482,6 +568,6 @@
+-            age = max(0, now - self.message["captured"])
+-            state = "数据中断（保留最后一帧）" if age > 1 else "实时"
+-            text = (f"{state}  ·  {self.rate:.1f} Hz / 目标 {self.hz:g} Hz"
+-                    f"  ·  SDK 读取 {self.message['duration_ms']:.1f} ms"
+-                    f"  ·  数据年龄 {age:.2f} s")
+-            color = "#b32424" if age > 1 else "#456277"
++            age = max(0, now - self.message['captured'])
++            state = '数据中断（保留最后一帧）' if age > 1 else '实时'
++            count = int(self.np.count_nonzero(self.np.linalg.norm(self.force[self.visible_indices], axis=1) > self.force_max))
++            text = (f'{state} · {self.rate:.1f} Hz / 目标 {self.hz:g} Hz'
++                    f" · SDK {self.message['duration_ms']:.1f} ms · 数据年龄 {age:.2f}s · 超颜色量程 {count} 点")
++            color = '#b32424' if age > 1 else '#456277'
+@@ -494,10 +580,9 @@
+-        x, y = math.floor(event.xdata), math.floor(event.ydata)
+-        for sensor in SENSORS:
+-            col, row = x - sensor.column * 12, y - sensor.bottom
+-            if 0 <= col < 10 and 0 <= row < sensor.rows:
+-                self.selected = sensor.start + col * sensor.rows + row
+-                self.selection.set_xy((x + 0.01, y + 0.01))
+-                self.selection.set_visible(True)
+-                self._refresh_detail()
+-                self.fig.canvas.draw_idle()
+-                return
++        delta = self.np.abs(self.centers[self.visible_indices] - (event.xdata, event.ydata))
++        hit = self.np.flatnonzero((delta[:, 0] <= .46) & (delta[:, 1] <= .46))
++        if len(hit):
++            self.selected = int(self.visible_indices[hit[0]])
++            x, y = self.centers[self.selected]
++            self.selection.set_xy((x - .49, y - .49))
++            self.selection.set_visible(True)
++            self._refresh_detail()
++            self.fig.canvas.draw_idle()
+@@ -513 +598 @@
+-            self.detail.set_text(f"S{sensor.sensor_id} {sensor.name} · 全局 {index} / 局部 {local} · 等待数据")
++            self.detail.set_text(f'S{sensor.sensor_id} {sensor.name} · 全局 {index} / 局部 {local} · 等待数据')
+@@ -515,0 +601,4 @@
++        total, tangent = self.np.linalg.norm(self.force[index]), math.hypot(fx, fy)
++        state = ('小读数已过滤' if total <= self.noise_floor + 1e-12 else
++                 '切向低于箭头门槛' if tangent < self.arrow_min else '有效切向')
++        exceed = ' · 超颜色量程' if total > self.force_max else ''
+@@ -517,4 +606,4 @@
+-            f"S{sensor.sensor_id} {sensor.name} · 全局 {index} / 局部 {local} · 行 {row} / 列 {col}\n"
+-            f"Fx={fx:+.3f}  Fy={fy:+.3f}  Fz={fz:+.3f}  "
+-            f"|F|={self.np.linalg.norm(self.force[index]):.3f}  |Fxy|={math.hypot(fx, fy):.3f} N"
+-        )
++            f'S{sensor.sensor_id} {sensor.name} · 全局{index} / 局部{local} · 行{row} / 列{col} · {state}{exceed}\n'
++            f'Fx={fx:+.3f} Fy={fy:+.3f} Fz={fz:+.3f} |F|={total:.3f} |Fxy|={tangent:.3f} N'
++            f' · 采集值=({self.sensor_force[index,0]:+.3f},{self.sensor_force[index,1]:+.3f},{self.sensor_force[index,2]:+.3f})'
++            f' · 过滤后|F|={self.np.linalg.norm(self.display_force[index]):.3f} N')
+@@ -539 +628 @@
+-def viewer_process(frames, stop, ready, force_max, hz):
++def viewer_process(frames, stop, ready, force_max, hz, display_settings=None):
+@@ -547 +636 @@
+-        table = TactileTable(force_max, hz)
++        table = TactileTable(force_max, hz, **(display_settings or {}))
+@@ -590 +679 @@
+-def run_controller(hand, hand_argv, hz, force_max):
++def run_controller(hand, hand_argv, hz, force_max, **display_settings):
+@@ -595 +684 @@
+-        session = TactileSession(hz, force_max)
++        session = TactileSession(hz, force_max, **display_settings)
+@@ -630 +719 @@
+-    parser.add_argument("--force-max-n", type=float, default=1.0, help="初始颜色和箭长量程，默认 1 N")
++    add_display_arguments(parser)
+@@ -638,0 +728,4 @@
++    try:
++        options = display_options(args)
++    except ValueError as exc:
++        parser.error(str(exc))
+@@ -645 +738 @@
+-            table = TactileTable(args.force_max_n, args.hz, interactive=args.snapshot is None)
++            table = TactileTable(args.force_max_n, args.hz, interactive=args.snapshot is None, **options)
+@@ -681 +774 @@
+-        return run_controller(hand, hand_argv, args.hz, args.force_max_n)
++        return run_controller(hand, hand_argv, args.hz, args.force_max_n, **options)
+--- a/DexHandSDK-debug/visualize_m24_tactile.py
++++ b/DexHandSDK-debug/visualize_m24_tactile.py
+@@ -171 +171 @@
+-def run_deployment(deploy_script, deploy_argv, hz, force_max):
++def run_deployment(deploy_script, deploy_argv, hz, force_max, **display_settings):
+@@ -181 +181 @@
+-    session = DeploymentTactileSession(hz, force_max)
++    session = DeploymentTactileSession(hz, force_max, **display_settings)
+@@ -231 +231 @@
+-    parser.add_argument("--force-max-n", type=float, default=1.0, help="初始显示量程，默认 1 N")
++    tactile.add_display_arguments(parser)
+@@ -238,0 +239,4 @@
++    try:
++        options = tactile.display_options(args)
++    except ValueError as exc:
++        parser.error(str(exc))
+@@ -243 +247,3 @@
+-        demo_args = ["--hz", str(args.hz), "--force-max-n", str(args.force_max_n)]
++        demo_args = ["--hz", str(args.hz), "--force-max-n", str(args.force_max_n),
++                     '--layout', args.layout, '--noise-floor-n', str(args.noise_floor_n),
++                     '--arrow-min-n', str(args.arrow_min_n), '--arrow-scale-n', str(args.arrow_scale_n)]
+@@ -249 +255 @@
+-        return run_deployment(args.deploy_script.resolve(), deploy_argv, args.hz, args.force_max_n)
++        return run_deployment(args.deploy_script.resolve(), deploy_argv, args.hz, args.force_max_n, **options)
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+@@ -21 +21,5 @@
+-        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-1}" --)
++        --hz "${DEXH13_TACTILE_HZ:-10}" --force-max-n "${DEXH13_TACTILE_MAX_N:-10}"
++        --layout "${DEXH13_TACTILE_LAYOUT:-fingertips}"
++        --noise-floor-n "${DEXH13_TACTILE_NOISE_N:-0.2}"
++        --arrow-min-n "${DEXH13_TACTILE_ARROW_MIN_N:-0.02}"
++        --arrow-scale-n "${DEXH13_TACTILE_ARROW_SCALE_N:-1}" --)
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -17,0 +18,14 @@
++
++## 三指触觉显示（2026-10-10更新）
++
++运行原入口加`--show-tactile`即可，默认并排显示拇指S11、食指S3、中指S6的三个指尖，各10列×12行。窗口可切回完整四指布局。
++
++按用户明确的换算关系，现有采集链路换算后的传感器值0–1对应0–10 N：显示进程将该值乘10，原SDK帧、策略和触觉采集线程不改变。点击格子同时显示采集值、换算后的Fx/Fy/Fz、|F|、|Fxy|及过滤状态。此显示换算来自用户说明，不是本次新增的独立硬件标定。
++
++颜色默认0–10 N，超过上限仅颜色顶满；分量模式为±10 N。黄色描边箭头仅表示SDK局部Fx/Fy，不表示Fz或已验证的世界滑动方向。箭头量程独立为1 N、触发门槛0.02 N，颜色量程/Fz变化不改变有效箭头；纯法向无切向方向时不伪造箭头。三指格式显示所有符合条件的点，不共用72个名额，箭长不超过单格；旧完整布局保留稀疏箭头。
++
++小读数只做显示过滤，不校零：总力≤0.2 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。0.2 N是可调初值，不是已测食指噪声上限。窗口提供颜色量程、噪声阈值、箭头门槛和箭长量程输入框。
++
++启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=10、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=0.2、DEXH13_TACTILE_ARROW_MIN_N=0.02、DEXH13_TACTILE_ARROW_SCALE_N=1。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE；用户在实现期间自行从0.02调到0.04，最新值保留。
++
++本机脚本已更新；原ZIP仍是历史快照。软件检查与模拟触觉截图见项目输出local_pipeline_m24_tactile_display_fix_20261010，本轮没有连接真实硬件。
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -44,2 +44,2 @@
+-    "deploy_m24_e003_student.py": "a0080f0f82aab5e2e166edb6023d505e5ba9120a90c994e1270721dfd636e281",
+-    "README.md": "732228a5b38e65553130867b8a83793768bd1b7d4b87e0373bd68bdd8ddcab8e",
++    "deploy_m24_e003_student.py": "ae5f5345f0b5086c38509b590958e57f2709deef3fb391af8ccd34fa34e5ca01",
++    "README.md": "1037322d4c179b72648592a00d1fcb014ae1b06c4927ed1d2d5be9e0333a827c",
+@@ -52 +52 @@
+-    "run_deploy.sh": "ec06a685b322a84f8b7e34be69cbcc5e5f8524c18eec582754e937c1c3b4a554",
++    "run_deploy.sh": "4a041020f172b4f6ca863258004219ed3aa87bb7629663dbe72380423243e764",
+@@ -55 +55,2 @@
+-    "manual_scale_verification.json": "8cca260888ccf503cfda7c6d8352ad2dab984fe50342e3337646781b1aaaf040"
++    "manual_scale_verification.json": "8cca260888ccf503cfda7c6d8352ad2dab984fe50342e3337646781b1aaaf040",
++    "tactile_display_verification.json": "1b2b94a8c87c469c5e653d87a308cef0f6c101d9708cbee74a565833416ef34b"
+@@ -66 +67 @@
+-    "adapter_sha256": "0d51cda2b257c6507a2771ef050efb5c93bf7f38fcbdb982f23cc4948aafd0fa",
++    "adapter_sha256": "db8261897eb548a4b70dfbc1e9fecc738950aca30e8ecc06a77e7fd0fc58de55",
+@@ -68 +69 @@
+-    "viewer_sha256": "d2d1072964663c260b2702cf1c4cc23501c72008c8439536d29f7621f8e59e15",
++    "viewer_sha256": "10db555e3fbc579c0b30d775e6a15a02e1077be4424c9da897044ccd9fa0149a",
+@@ -71 +72 @@
+-    "force_max_default_N": 1,
++    "force_max_default_N": 10,
+@@ -74 +75,18 @@
+-    "hardware_timing_validated": false
++    "hardware_timing_validated": false,
++    "layout_default": "fingertips",
++    "layout_environment": "DEXH13_TACTILE_LAYOUT",
++    "noise_floor_default_N": 0.2,
++    "noise_floor_environment": "DEXH13_TACTILE_NOISE_N",
++    "arrow_min_default_N": 0.02,
++    "arrow_min_environment": "DEXH13_TACTILE_ARROW_MIN_N",
++    "arrow_scale_default_N": 1,
++    "arrow_scale_environment": "DEXH13_TACTILE_ARROW_SCALE_N",
++    "sensor_value_to_newton": 10,
++    "user_reported_sensor_range": [
++      0,
++      1
++    ],
++    "display_calibration_independently_verified": false,
++    "direction": "SDK local Fx/Fy only",
++    "raw_sdk_frames_unchanged": true,
++    "actual_user_action_scale": 0.04
+--- /dev/null
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/tactile_display_verification.json
+@@ -0,0 +1,45 @@
++{
++  "display": {
++    "checks": [
++      "three_tip_mapping_and_point_order",
++      "user_sensor_0_to_1_maps_to_0_to_10_newtons",
++      "fz_and_color_scale_do_not_change_360_tangent_arrows",
++      "pure_normal_has_no_fabricated_direction",
++      "noise_boundary_and_independent_tangent_threshold",
++      "click_raw_values_filter_and_overrange_detail",
++      "layout_switch_preserves_raw_data_and_signed_mode",
++      "invalid_window_settings_rejected",
++      "screenshots_both_layouts"
++    ],
++    "hardware_operated": false
++  },
++  "deployment": {
++    "plain_tactile_exact_steps": 20,
++    "current_user_action_scale": 0.02,
++    "model_action_scale": 0.05,
++    "model_entry_legacy_preserved": true,
++    "sdk_import_blocked": true,
++    "hardware_operated": false
++  },
++  "integration_tests_passed": 23,
++  "gui_close_signal_cleanup_tested": true,
++  "screenshots": [
++    "outputs/local_pipeline_m24_tactile_display_fix_20261010/fingertips.png",
++    "outputs/local_pipeline_m24_tactile_display_fix_20261010/full.png"
++  ],
++  "calibration_source": "User reports sensor readings 0..1 represent 0..10 N; displayed values after existing acquisition conversion are multiplied by 10 in viewer only.",
++  "hardware_operated": false,
++  "deployment_latest": {
++    "plain_tactile_exact_steps": 20,
++    "current_user_action_scale": 0.04,
++    "model_action_scale": 0.05,
++    "model_legacy_preserved": true,
++    "entry_unchanged_except_user_action_scale": true,
++    "sdk_import_blocked": true,
++    "hardware_operated": false
++  },
++  "user_changed_action_scale_during_session": [
++    0.02,
++    0.04
++  ]
++}

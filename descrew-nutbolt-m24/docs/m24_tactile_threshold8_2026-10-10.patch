@@ -1,0 +1,38 @@
+--- a/DexHandSDK-debug/visualize_right_tactile.py
++++ b/DexHandSDK-debug/visualize_right_tactile.py
+@@ -42 +42 @@
+-DEFAULT_NOISE_FLOOR_N = 0.2
++DEFAULT_NOISE_FLOOR_N = 8.0
+@@ -59 +59 @@
+-    parser.add_argument('--noise-floor-n', type=float, default=DEFAULT_NOISE_FLOOR_N, help='总力小读数过滤，默认0.2 N')
++    parser.add_argument('--noise-floor-n', type=float, default=DEFAULT_NOISE_FLOOR_N, help='总力小读数过滤，默认8 N')
+@@ -376 +376 @@
+-                 layout='fingertips', noise_floor=0.2, arrow_min=0.02, arrow_scale=1.0):
++                 layout='fingertips', noise_floor=DEFAULT_NOISE_FLOOR_N, arrow_min=0.02, arrow_scale=1.0):
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/run_deploy.sh
+@@ -23 +23 @@
+-        --noise-floor-n "${DEXH13_TACTILE_NOISE_N:-0.2}"
++        --noise-floor-n "${DEXH13_TACTILE_NOISE_N:-8}"
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -27 +27 @@
+-小读数只做显示过滤，不校零：总力≤0.2 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。0.2 N是可调初值，不是已测食指噪声上限。窗口提供颜色量程、噪声阈值、箭头门槛和箭长量程输入框。
++小读数只做显示过滤，不校零：总力≤8 N显示零并隐藏箭头，其他点单独按切向门槛决定箭头。8 N是用户指定的可调显示阈值，不是已测食指噪声上限。窗口提供颜色量程、噪声阈值、箭头门槛和箭长量程输入框。
+@@ -29 +29 @@
+-启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=10、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=0.2、DEXH13_TACTILE_ARROW_MIN_N=0.02、DEXH13_TACTILE_ARROW_SCALE_N=1。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE；用户在实现期间自行从0.02调到0.04，最新值保留。
++启动默认值也可通过环境变量修改：DEXH13_TACTILE_MAX_N=10、DEXH13_TACTILE_LAYOUT=fingertips（或full）、DEXH13_TACTILE_NOISE_N=8、DEXH13_TACTILE_ARROW_MIN_N=0.02、DEXH13_TACTILE_ARROW_SCALE_N=1。触觉读取频率仍用DEXH13_TACTILE_HZ，默认10 Hz。显示关闭/异常沿用原策略继续和退出清理行为。本次没有修改ACTION_SCALE；用户在实现期间自行从0.02调到0.04，最新值保留。
+--- a/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/dexscrew-repro-nutbolt/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -45 +45 @@
+-    "README.md": "ec325245f48e4b65bf40713fbf6f69ba91bae13a7c6e06a666acd135a2fe62f3",
++    "README.md": "221406414f06ca5f7a7c635b1308eaab914f0d2d414d96387cde8ada3da4b98e",
+@@ -52 +52 @@
+-    "run_deploy.sh": "4a041020f172b4f6ca863258004219ed3aa87bb7629663dbe72380423243e764",
++    "run_deploy.sh": "547586b5836f96d16234dc660ce589a59f024b7fb12895050204151b4ef56473",
+@@ -73 +73 @@
+-    "viewer_sha256": "d6a8dd4ed5d4d81dedc033037f6c89930f2e5cf4cc6406cbbdaf5916a24b4803",
++    "viewer_sha256": "00643e2844d12f774a5a889efc96d14505d9f65726969ab0893f93d197ded34a",
+@@ -82 +82 @@
+-    "noise_floor_default_N": 0.2,
++    "noise_floor_default_N": 8,

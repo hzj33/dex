@@ -1,0 +1,290 @@
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/m24_legacy_deployment.py
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/m24_legacy_deployment.py
+@@ -612,0 +613,2 @@
++        self.tactile_calibration = dict(enabled=True, sdk_method='calibrateSensor',
++            status='pending', calls=0, wait_seconds=1.0)
+@@ -622,0 +625,18 @@
++        print('[tactile-zero] 校零开始；请保持触觉面无接触。', flush=True)
++        calibration = self.tactile_calibration
++        calibration['calls'] += 1
++        calibration['started_at'] = utc_now()
++        try:
++            calibration['returned_success'] = bool(self.control.calibrateSensor())
++            if not calibration['returned_success']:
++                raise RuntimeError('DexH13 SDK calibrateSensor failed; deployment aborted')
++            calibration['status'] = 'settling'
++            time.sleep(calibration['wait_seconds'])
++            calibration['status'] = 'completed'
++            calibration['ended_at'] = utc_now()
++        except BaseException as exc:
++            calibration['status'] = 'interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed'
++            calibration['error'] = str(exc)
++            calibration['ended_at'] = utc_now()
++            raise
++        print('[tactile-zero] 校零成功，继续原部署。', flush=True)
+@@ -889,0 +910,3 @@
++    logger.metadata['tactile_calibration'] = getattr(controller, 'tactile_calibration',
++        dict(enabled=False, sdk_method='calibrateSensor', status='skipped_dry_run', calls=0))
++    logger._write_metadata()
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/README.md
+@@ -31,0 +32,8 @@
++
++## 每次启动自动触觉校零
++
++普通M24部署与--show-tactile均在SDK连接成功且确认右手后调用一次calibrateSensor()，成功后等待1秒，再进入原电机初始化/使能/初始姿态与策略流程。启动时触觉面必须保持无接触，避免把实际接触载荷作为零偏；程序不额外发送张开动作，也不能自行证明已经无接触。
++
++返回False、接口异常或等待被中断时不继续启动策略，沿原清理路径断开。dry-run跳过真实SDK和校零。run_metadata.json新增tactile_calibration，记录状态、调用数、返回结果、起止时间与1秒等待。校零不会在每帧重做，不清零策略历史，不改变动作步幅/模型/显示换算。
++
++接口与1秒等待依据本机DexH13 SDK V2.1.1手册及其触觉示例；本次仅用假SDK验证流程，实际零漂改善待真机确认。原ZIP仍为历史快照。
+--- a/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/manifest.json
+@@ -12 +12 @@
+-  "legacy_unchanged": true,
++  "legacy_unchanged": false,
+@@ -45 +45 @@
+-    "README.md": "1037322d4c179b72648592a00d1fcb014ae1b06c4927ed1d2d5be9e0333a827c",
++    "README.md": "62a2f217e5f0f987efc1a29e3b667048d193e393537abb01762d409142a1bf2b",
+@@ -47 +47 @@
+-    "m24_legacy_deployment.py": "70e875fcdc41de305e59fa347d4fdeb25d6de27b9659ad8bc1fc7142fe422ed4",
++    "m24_legacy_deployment.py": "dcf23b14b0d05cde29af39c143a21490cb3190f673f295b72d920ef4d3a1fc78",
+@@ -56 +56,2 @@
+-    "tactile_display_verification.json": "1b2b94a8c87c469c5e653d87a308cef0f6c101d9708cbee74a565833416ef34b"
++    "tactile_display_verification.json": "1b2b94a8c87c469c5e653d87a308cef0f6c101d9708cbee74a565833416ef34b",
++    "tactile_calibration_verification.json": "bbf729ded30368ced1b52b130ab0162cac4d264ce8af4fd3bbcc47da74866f6a"
+@@ -101,0 +103,12 @@
++  },
++  "startup_tactile_calibration": {
++    "enabled": true,
++    "sdk_method": "calibrateSensor",
++    "per_real_run_calls": 1,
++    "wait_seconds": 1.0,
++    "before_motor_init_enable_initial_pose": true,
++    "plain_and_tactile": true,
++    "dry_run_skipped": true,
++    "abort_on_failure": true,
++    "requires_no_contact": true,
++    "hardware_verified": false
+--- /dev/null
++++ b/outputs/local_m24_deployment/e003_return_progress_recovery_20261008/tactile_calibration_verification.json
+@@ -0,0 +1,220 @@
++{
++  "cases": [
++    {
++      "case": "plain",
++      "exit": 0,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:44.919766+00:00",
++        "returned_success": true,
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:43.915992+00:00",
++        "status": "completed",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "init",
++        "mode",
++        "enable",
++        "enabled",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "disable",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "tactile",
++      "exit": 0,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:48.421778+00:00",
++        "returned_success": true,
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:47.418116+00:00",
++        "status": "completed",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "init",
++        "mode",
++        "enable",
++        "enabled",
++        "set",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "tactile",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "joint",
++        "set",
++        "disable",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "fail_plain",
++      "exit": 1,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:50.895097+00:00",
++        "error": "DexH13 SDK calibrateSensor failed; deployment aborted",
++        "returned_success": false,
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:50.891983+00:00",
++        "status": "failed",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "fail_tactile",
++      "exit": 2,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:51.874899+00:00",
++        "error": "DexH13 SDK calibrateSensor failed; deployment aborted",
++        "returned_success": false,
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:51.871794+00:00",
++        "status": "failed",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "exception_tactile",
++      "exit": 2,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:52.840425+00:00",
++        "error": "injected calibration error",
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:52.837296+00:00",
++        "status": "failed",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "interrupt_settling",
++      "exit": 130,
++      "calibration": {
++        "calls": 1,
++        "enabled": true,
++        "ended_at": "2026-10-10T09:00:53.859134+00:00",
++        "error": "",
++        "returned_success": true,
++        "sdk_method": "calibrateSensor",
++        "started_at": "2026-10-10T09:00:53.790771+00:00",
++        "status": "interrupted",
++        "wait_seconds": 1.0
++      },
++      "events": [
++        "construct",
++        "connect",
++        "connected",
++        "calibrate",
++        "disconnect"
++      ]
++    },
++    {
++      "case": "dry_plain",
++      "exit": 0,
++      "calibration": {
++        "calls": 0,
++        "enabled": false,
++        "sdk_method": "calibrateSensor",
++        "status": "skipped_dry_run"
++      },
++      "events": []
++    },
++    {
++      "case": "dry_tactile",
++      "exit": 0,
++      "calibration": {
++        "calls": 0,
++        "enabled": false,
++        "sdk_method": "calibrateSensor",
++        "status": "skipped_dry_run"
++      },
++      "events": []
++    }
++  ],
++  "plain_tactile_policy_exact_steps": 10,
++  "model_entry_launcher_preserved": true,
++  "hardware_operated": false
++}
